@@ -1,0 +1,27 @@
+"""Códigos de error/aviso de TDM Seal (sección 16 de la especificación)."""
+
+from __future__ import annotations
+
+
+class TDMSealError(Exception):
+    """Error base de TDM Seal, con código asociado."""
+
+    def __init__(self, code: str, message: str) -> None:
+        self.code = code
+        self.message = message
+        super().__init__(f"{code}: {message}")
+
+
+TDM001_PDF_UNREADABLE = "TDM001"
+TDM002_XMP_MALFORMED = "TDM002"
+TDM003_INVALID_RESERVATION = "TDM003"
+TDM004_INVALID_POLICY_URL = "TDM004"
+TDM010_PDFA_EXTENSION_SCHEMA_FAILED = "TDM010"
+TDM011_VERAPDF_FAILED = "TDM011"
+TDM020_ENCRYPTED = "TDM020"
+TDM021_SIGNED = "TDM021"
+TDM030_QPDF_STRUCTURAL_ERROR = "TDM030"
+TDM031_TDMREP_REREAD_FAILED = "TDM031"
+TDM032_NON_TDM_METADATA_CHANGED = "TDM032"
+TDM040_PAGE_GEOMETRY_MISMATCH = "TDM040"
+TDM050_OUTPUT_EXISTS = "TDM050"

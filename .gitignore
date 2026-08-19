@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.log
+.env
+.DS_Store
+
+# Salidas de prueba generadas por la suite (no son fixtures)
+tests/fixtures/_generated/
+tests/**/*_TDM.pdf
+tests/**/*.report.json
+
+# Backups locales que puede crear el modo --replace --backup
+.backup/
