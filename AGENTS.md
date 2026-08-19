@@ -48,6 +48,18 @@ terminar y emitir antes de que el `connect()` se ejecute); sondear un efecto
 observable (p. ej. `btn_open_folder.isEnabled()`) es más fiable que confiar en
 el orden de conexión de señales entre hilos.
 
+**Bug real encontrado y corregido en esta sesión:** en el `.exe` de
+PyInstaller, `QFileDialog.getOpenFileNames()`/`getExistingDirectory()` con el
+diálogo nativo de Windows (COM `IFileOpenDialog`) nunca mostraban ninguna
+ventana — el clic no producía error ni excepción, simplemente no pasaba nada
+(el proceso seguía vivo). Problema conocido de PySide6 congelado con
+PyInstaller. Solución: pasar `options=QFileDialog.Option.DontUseNativeDialog`
+(ver `gui.py`, `_select_file`/`_select_folder`) para forzar el diálogo propio
+de Qt, que no depende de COM y funciona igual congelado que sin congelar. Se
+verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
+directas a métodos de Python) contra el `.exe` compilado, no solo contra el
+script sin congelar — probar solo lo segundo NO habría detectado este bug.
+
 ## Qué falta (roadmap, ver spec sección 32)
 
 - **v0.2.0 — PDF/A**: descargar `TDMRepSchema-2025_02.xml` de la PDF

@@ -238,13 +238,27 @@ class MainWindow(QMainWindow):
 
     # ---- selección de archivos ------------------------------------------
 
+    # DontUseNativeDialog: en el .exe de PyInstaller, el dialogo nativo de
+    # Windows (COM IFileOpenDialog) nunca aparece y se queda colgado sin
+    # error — problema conocido de PySide6 congelado. El dialogo propio de
+    # Qt no depende de COM y funciona igual en el .exe que sin congelar.
     def _select_file(self) -> None:
-        paths, _ = QFileDialog.getOpenFileNames(self, "Seleccionar PDF", "", "PDF (*.pdf)")
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Seleccionar PDF",
+            "",
+            "PDF (*.pdf)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
         if paths:
             self._load_paths([Path(p) for p in paths])
 
     def _select_folder(self) -> None:
-        folder = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta")
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Seleccionar carpeta",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
         if folder:
             pdfs = iter_pdfs(Path(folder), recursive=self.chk_recursive.isChecked())
             self._load_paths(pdfs)

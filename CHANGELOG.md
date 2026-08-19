@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.1.2] - 2026-08-19
+
+### Corregido
+
+- **Bug crítico en `TDM-Seal.exe`**: los diálogos "Seleccionar PDF" /
+  "Seleccionar carpeta" nunca aparecían al correr desde el ejecutable
+  compilado con PyInstaller (el diálogo nativo de Windows se quedaba
+  colgado sin error). Se fuerza `QFileDialog.Option.DontUseNativeDialog`.
+  Verificado con clics y tecleo reales contra el `.exe`, no solo contra el
+  script sin congelar.
+
 ## [0.1.1] - 2026-08-19
 
 ### Añadido
