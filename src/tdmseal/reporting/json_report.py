@@ -7,7 +7,18 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from tdmseal import __version__
-from tdmseal.models import PDFInfo, SealResult
+from tdmseal.models import PDFInfo, PublisherInfo, SealResult
+
+
+def _publisher_to_dict(publisher: PublisherInfo | None) -> dict | None:
+    if publisher is None or publisher.is_empty():
+        return None
+    return {
+        "name": publisher.name,
+        "acronym": publisher.acronym,
+        "website": publisher.website,
+        "rights_email": publisher.rights_email,
+    }
 
 
 def _pdf_info_to_dict(info: PDFInfo | None) -> dict | None:
@@ -32,11 +43,12 @@ def _pdf_info_to_dict(info: PDFInfo | None) -> dict | None:
     }
 
 
-def build_report(result: SealResult) -> dict:
+def build_report(result: SealResult, publisher: PublisherInfo | None = None) -> dict:
     return {
         "tool": "TDM Seal",
         "tool_version": __version__,
         "timestamp_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "publisher": _publisher_to_dict(publisher),
         "status": result.status,
         "operation": result.operation,
         "reason_code": result.reason_code,
@@ -48,6 +60,6 @@ def build_report(result: SealResult) -> dict:
     }
 
 
-def write_report(result: SealResult, path: Path) -> None:
-    report = build_report(result)
+def write_report(result: SealResult, path: Path, publisher: PublisherInfo | None = None) -> None:
+    report = build_report(result, publisher)
     Path(path).write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")

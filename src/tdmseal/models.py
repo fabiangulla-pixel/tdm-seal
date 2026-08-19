@@ -26,6 +26,24 @@ class TDMPolicy:
 
 
 @dataclass
+class PublisherInfo:
+    """Datos de la editorial/titular de derechos, para el reporte de auditoría.
+
+    Puramente informativo: no se escribe en el PDF ni en TDMRep (que solo
+    admite `reservation` y `policy_url`). Sirve para dejar constancia de
+    quién declaró la reserva de derechos en cada reporte.
+    """
+
+    name: str | None = None
+    acronym: str | None = None
+    website: str | None = None
+    rights_email: str | None = None
+
+    def is_empty(self) -> bool:
+        return not any([self.name, self.acronym, self.website, self.rights_email])
+
+
+@dataclass
 class TDMRepDeclaration:
     """Declaración TDMRep tal como se leyó de un PDF."""
 

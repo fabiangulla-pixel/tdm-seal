@@ -13,7 +13,7 @@ legible por máquinas, de que los derechos de minería de textos y datos están
 reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
 padre) para la especificación funcional y técnica completa.
 
-## Estado actual (v0.1.0 — núcleo)
+## Estado actual (v0.1.1 — núcleo + GUI)
 
 Implementado y con pruebas automatizadas:
 
@@ -28,15 +28,20 @@ Implementado y con pruebas automatizadas:
 - verificación de integridad sintáctica (`pikepdf.Pdf.check_pdf_syntax`);
 - comprobación de invariantes no-metadata (páginas, geometría, anotaciones,
   adjuntos);
-- reporte JSON por archivo procesado;
-- CLI: `tdmseal seal`, `tdmseal inspect`, `tdmseal show`, `tdmseal audit`.
+- reporte JSON por archivo procesado, con datos opcionales de la editorial;
+- valores por defecto (editorial, reserva, política) guardados en
+  `~/.tdmseal/config.json` — `tdmseal config show|set` desde la CLI, o el
+  botón "Guardar como valores por defecto" en la GUI;
+- CLI: `tdmseal seal`, `inspect`, `show`, `audit`, `config`;
+- **GUI de escritorio (PySide6)**: `TDM-Seal.bat` (doble clic, prepara su
+  propio entorno virtual la primera vez) o `dist/TDM-Seal.exe` (standalone,
+  sin Python instalado — ver `scripts/build_exe.bat`).
 
 **Pendiente** (ver hoja de ruta completa en la especificación, sección 32):
 
 - soporte PDF/A (XMP Extension Schema, detección de conformidad — v0.2.0);
 - validación PDF/A con veraPDF (el hook existe en
   `validation/verapdf_validator.py` pero está marcado `SKIPPED`);
-- GUI (v0.3.0);
 - Policy Builder / ODRL / JSON-LD (v0.4.0);
 - XMP Rights, CAWG, señales web (`/.well-known/tdmrep.json`) — fases
   posteriores.
@@ -51,9 +56,32 @@ pip a mitad de escritura. Por ejemplo:
 ```bash
 python -m venv "$HOME/.venvs/tdm-seal"
 "$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev]"
+
+# Para usar la GUI, añade el extra "gui" (PySide6):
+"$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev,gui]"
 ```
 
-## Uso
+## GUI de escritorio
+
+La forma más simple es hacer doble clic en **`TDM-Seal.bat`**: la primera vez
+crea el entorno virtual e instala las dependencias automáticamente; las
+siguientes veces abre la GUI directamente.
+
+También existe **`dist/TDM-Seal.exe`** (y una copia en la carpeta padre,
+junto a la especificación), un ejecutable standalone que no requiere Python
+instalado. Para regenerarlo tras un cambio de código:
+
+```bash
+scripts\build_exe.bat
+```
+
+La GUI permite: cargar un PDF o una carpeta, auditar automáticamente (PDF/A,
+firma, cifrado, TDM actual), completar los datos de la editorial y la
+política TDM, y aplicar el sello a todo el lote con un botón. Los valores de
+editorial/política pueden guardarse como valores por defecto para no
+reescribirlos cada vez.
+
+## Uso (línea de comandos)
 
 ```bash
 # Sellar un PDF (reserva por defecto = 1)
@@ -73,6 +101,10 @@ tdmseal show libro_TDM.pdf
 
 # Auditar un catálogo completo
 tdmseal audit ./catalogo --recursive
+
+# Ver / guardar valores por defecto (editorial, reserva, política)
+tdmseal config show
+tdmseal config set --publisher-name "Editorial Universidad Ejemplo" --publisher-acronym EUE
 ```
 
 Cada `seal` genera `archivo_TDM.pdf` junto al original y
