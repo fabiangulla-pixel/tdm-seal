@@ -22,6 +22,7 @@ from tdmseal.validation.qpdf_validator import qpdf_check
 from tdmseal.validation.tdmrep_validator import verify_tdmrep_by_rereading
 from tdmseal.validation.verapdf_validator import run_verapdf
 from tdmseal.xmp.parser import find_rdf_root, parse_xmp
+from tdmseal.xmp.pdfa_extension import merge_tdmrep_extension_schema
 from tdmseal.xmp.serializer import serialize_xmp
 from tdmseal.xmp.tdmrep import write_tdmrep
 
@@ -84,6 +85,9 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
             rdf_root = find_rdf_root(xmp_tree)
 
             operation = write_tdmrep(rdf_root, config.policy)
+
+            if before.pdfa_part in (1, 2, 3):
+                merge_tdmrep_extension_schema(rdf_root)
 
             new_xmp_bytes = serialize_xmp(xmp_tree)
             write_document_xmp_bytes(pdf, new_xmp_bytes)

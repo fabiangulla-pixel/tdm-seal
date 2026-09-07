@@ -40,6 +40,7 @@ from tdmseal.discovery import iter_pdfs
 from tdmseal.errors import TDMSealError
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.pdf.inspector import inspect_pdf
+from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
 from tdmseal.seal import seal_pdf
 
@@ -147,8 +148,15 @@ class MainWindow(QMainWindow):
         self.publisher_email_edit = QLineEdit()
         row2.addWidget(self.publisher_email_edit)
         publisher_form.addLayout(row2)
+        row3 = QHBoxLayout()
         self.btn_save_defaults = QPushButton("Guardar como valores por defecto")
-        publisher_form.addWidget(self.btn_save_defaults, alignment=Qt.AlignLeft)
+        self.chk_require_compensation = QCheckBox("Exigir compensación económica")
+        self.btn_build_policy = QPushButton("Generar artefactos de política…")
+        row3.addWidget(self.btn_save_defaults)
+        row3.addWidget(self.chk_require_compensation)
+        row3.addWidget(self.btn_build_policy)
+        row3.addStretch(1)
+        publisher_form.addLayout(row3)
         layout.addWidget(publisher_group)
 
         policy_group = QGroupBox("Reserva TDM")
@@ -205,6 +213,7 @@ class MainWindow(QMainWindow):
         self.btn_apply.clicked.connect(self._run_seal)
         self.btn_open_folder.clicked.connect(self._open_output_folder)
         self.btn_save_defaults.clicked.connect(self._save_defaults)
+        self.btn_build_policy.clicked.connect(self._build_policy)
 
         self._apply_defaults(load_defaults())
 
@@ -235,6 +244,24 @@ class MainWindow(QMainWindow):
         )
         save_defaults(defaults)
         self.status_label.setText("Valores por defecto guardados.")
+
+    def _build_policy(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Carpeta de salida para la política TDM",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not folder:
+            return
+
+        options = PolicyOptions(require_compensation=self.chk_require_compensation.isChecked())
+        try:
+            paths = write_policy_artifacts(Path(folder), self._current_publisher(), options)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Faltan datos de la editorial", str(exc))
+            return
+
+        self.status_label.setText(f"Política generada en {folder}: {', '.join(paths)}")
 
     # ---- selección de archivos ------------------------------------------
 

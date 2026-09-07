@@ -13,6 +13,7 @@ from tdmseal.config import SealConfig
 from tdmseal.discovery import iter_pdfs
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.pdf.inspector import inspect_pdf
+from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
 from tdmseal.seal import seal_pdf
 
@@ -210,6 +211,54 @@ def _publisher_to_dict(defaults: AppDefaults) -> dict:
         },
         "tdm": {"reservation": defaults.reservation, "policy_url": defaults.policy_url},
     }
+
+
+@main.group()
+def policy() -> None:
+    """Policy Builder: genera policy.jsonld, policy.html y tdmrep.json (sección 27)."""
+
+
+@policy.command("build")
+@click.option("--output-dir", type=click.Path(path_type=Path), default=Path("."))
+@click.option("--publisher-name", default=None)
+@click.option("--publisher-website", default=None, help="URL del sitio web (se deriva el dominio).")
+@click.option("--publisher-email", default=None, help="Correo de derechos.")
+@click.option(
+    "--require-compensation",
+    is_flag=True,
+    help="Exigir compensación económica además de consentimiento.",
+)
+@click.option("--policy-id", default="1", show_default=True)
+def policy_build(
+    output_dir: Path,
+    publisher_name: str | None,
+    publisher_website: str | None,
+    publisher_email: str | None,
+    require_compensation: bool,
+    policy_id: str,
+) -> None:
+    """Genera los artefactos de política TDM a partir de los datos de la editorial.
+
+    Los datos no indicados se toman de los valores por defecto guardados con
+    `tdmseal config set`.
+    """
+    defaults = load_defaults()
+    publisher = PublisherInfo(
+        name=publisher_name or defaults.publisher.name,
+        acronym=defaults.publisher.acronym,
+        website=publisher_website or defaults.publisher.website,
+        rights_email=publisher_email or defaults.publisher.rights_email,
+    )
+    options = PolicyOptions(require_compensation=require_compensation, policy_id=policy_id)
+
+    try:
+        paths = write_policy_artifacts(output_dir, publisher, options)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+
+    for name, path in paths.items():
+        click.echo(f"[OK] {name} -> {path}")
 
 
 if __name__ == "__main__":
