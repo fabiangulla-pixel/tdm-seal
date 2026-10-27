@@ -116,6 +116,7 @@ def inspect(target: Path) -> None:
     info = inspect_pdf(target)
     pdfa = _format_pdfa(info)
     click.echo(f"Archivo: {info.path}")
+    click.echo(f"ISCC: {info.iscc}")
     click.echo(f"PDF version: {info.pdf_version}")
     click.echo(f"PDF/A: {pdfa}")
     click.echo(f"TDM reservation: {info.tdm.reservation}")
@@ -131,6 +132,7 @@ def show(target: Path, fmt: str) -> None:
     """Extrae la declaración TDMRep de un PDF en formato JSON."""
     info = inspect_pdf(target)
     payload = {
+        "iscc": info.iscc,
         "tdm_reservation": info.tdm.reservation,
         "tdm_policy": info.tdm.policy_url,
         "source": "document-level-xmp" if info.tdm.present else None,
@@ -153,7 +155,9 @@ def audit(target: Path, recursive: bool) -> None:
         pdfa = _format_pdfa(info)
         estado = "OK" if info.tdm.reservation is not None else "FALTA TDM"
         policy = info.tdm.policy_url or "-"
-        click.echo(f"{pdf_path.name}\t{info.tdm.reservation}\t{policy}\t{pdfa}\t{estado}")
+        click.echo(
+            f"{pdf_path.name}\t{info.iscc}\t{info.tdm.reservation}\t{policy}\t{pdfa}\t{estado}"
+        )
 
 
 @main.group()

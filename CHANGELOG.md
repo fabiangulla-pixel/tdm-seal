@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.0] - 2026-10-27
+
+### Añadido
+
+- **Identificador ISCC del archivo** (`tdmseal/iscc.py`, vía `iscc-core`):
+  cada PDF inspeccionado o sellado recibe ahora un código ISCC (Data-Code +
+  Instance-Code compuestos) calculado a partir de su contenido binario, no
+  de su nombre ni de su ubicación — el mismo archivo conserva el mismo ISCC
+  si se renombra o se mueve de carpeta, y cualquier cambio de contenido
+  produce un ISCC distinto. No sustituye al ISBN, al DOI ni a ONIX: los
+  complementa. Se añade a `PDFInfo.iscc`, al reporte JSON (`input.iscc`,
+  `output.iscc`) y a la salida de `tdmseal inspect`, `show` y `audit`.
+  Primer paso hacia la visión SIMEH (registro de ISCC + declaración TDM +
+  sello de tiempo RFC 3161 + historial de versiones); el registro externo y
+  el sellado de tiempo quedan pendientes.
+
 ## [0.1.2] - 2026-08-19
 
 ### Corregido

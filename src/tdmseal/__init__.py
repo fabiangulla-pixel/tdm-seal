@@ -1,3 +1,3 @@
 """TDM Seal — sellado declarativo de derechos TDM (TDMRep) para PDF editoriales."""
 
-__version__ = "0.1.2"
+__version__ = "0.2.0"

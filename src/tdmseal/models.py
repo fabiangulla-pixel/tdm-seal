@@ -67,6 +67,7 @@ class PDFInfo:
     has_xmp: bool
     tdm: TDMRepDeclaration
     sha256: str
+    iscc: str | None = None
 
     @property
     def is_pdfa(self) -> bool:

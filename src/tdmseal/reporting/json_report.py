@@ -31,6 +31,7 @@ def _pdf_info_to_dict(info: PDFInfo | None) -> dict | None:
     return {
         "file": str(info.path),
         "sha256": info.sha256,
+        "iscc": info.iscc,
         "pdf_version": info.pdf_version,
         "page_count": info.page_count,
         "pdfa": pdfa,

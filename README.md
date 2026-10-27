@@ -13,10 +13,18 @@ legible por máquinas, de que los derechos de minería de textos y datos están
 reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
 padre) para la especificación funcional y técnica completa.
 
-## Estado actual (v0.1.1 — núcleo + GUI)
+## Estado actual (v0.2.0 — núcleo + GUI + ISCC)
 
 Implementado y con pruebas automatizadas:
 
+- **identificador ISCC del archivo** (`tdmseal/iscc.py`, vía `iscc-core`):
+  se calcula a partir del propio contenido binario del PDF, no de su nombre
+  ni de su ubicación, por lo que reconoce el mismo archivo aunque cambie de
+  nombre o de carpeta, y cambia si el contenido cambia. No sustituye al
+  ISBN, al DOI ni a ONIX: los complementa. Visible en `inspect`, `show`,
+  `audit` y en el reporte JSON. Primer paso hacia la visión SIMEH (registro
+  de ISCC + declaración TDM + sello de tiempo RFC 3161 + historial de
+  versiones — pendiente);
 - inspección de PDF (versión, páginas, cifrado, firma digital, XMP, TDMRep);
 - lectura y escritura de TDMRep en el XMP de nivel de documento, preservando
   todo lo demás;
