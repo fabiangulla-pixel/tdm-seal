@@ -8,10 +8,12 @@ from pathlib import Path
 
 import click
 
+from tdmseal.aipref import AiPreferences, AiPrefError
 from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
 from tdmseal.discovery import iter_documents
 from tdmseal.documents import inspect_document, seal_document
+from tdmseal.errors import TDMSealError
 from tdmseal.iscc.content import (
     NO_EXTRA_WARNING,
     compute_content_iscc,
@@ -20,6 +22,8 @@ from tdmseal.iscc.content import (
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
+from tdmseal.site import build_site_artifacts, validate_tdmrep_json, write_site_artifacts
+from tdmseal.xmp.tdmrep import validate_policy_url
 
 
 def _format_pdfa(info) -> str:
@@ -27,6 +31,14 @@ def _format_pdfa(info) -> str:
         return "no"
     conformance = (info.pdfa_conformance or "").lower()
     return f"PDF/A-{info.pdfa_part}{conformance}"
+
+
+def _parse_aipref_or_exit(text: str) -> AiPreferences:
+    try:
+        return AiPreferences.parse(text)
+    except AiPrefError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(2)
 
 
 @click.group()
@@ -52,6 +64,12 @@ def main() -> None:
     is_flag=True,
     help="Calcular el ISCC completo y escribirlo en el XMP (ver `tdmseal iscc`).",
 )
+@click.option(
+    "--aipref",
+    default=None,
+    help='Preferencias IETF AIPREF, p. ej. "train-ai=n, ai-use=n, search=y" '
+    "(se registran en el reporte; ver `tdmseal site`).",
+)
 def seal(
     target: Path,
     reservation: int | None,
@@ -65,6 +83,7 @@ def seal(
     publisher_website: str | None,
     publisher_email: str | None,
     with_iscc: bool,
+    aipref: str | None,
 ) -> None:
     """Sella un PDF/EPUB o una carpeta de ellos con una declaración TDMRep.
 
@@ -89,6 +108,7 @@ def seal(
         force_signed=force_signed,
         allow_encrypted=allow_encrypted,
         compute_iscc=with_iscc,
+        aipref=_parse_aipref_or_exit(aipref or defaults.aipref),
     )
 
     pdfs = iter_documents(target, recursive)
@@ -246,6 +266,7 @@ def config_show() -> None:
 @click.option("--publisher-email", default=None)
 @click.option("--reservation", type=click.IntRange(0, 1), default=None)
 @click.option("--policy", "policy_url", default=None)
+@click.option("--aipref", default=None, help='Ej.: "train-ai=n, ai-use=n, search=y"')
 def config_set(
     publisher_name: str | None,
     publisher_acronym: str | None,
@@ -253,6 +274,7 @@ def config_set(
     publisher_email: str | None,
     reservation: int | None,
     policy_url: str | None,
+    aipref: str | None,
 ) -> None:
     """Actualiza los valores por defecto guardados (solo lo indicado cambia)."""
     defaults = load_defaults()
@@ -268,8 +290,83 @@ def config_set(
         defaults.reservation = reservation
     if policy_url is not None:
         defaults.policy_url = policy_url
+    if aipref is not None:
+        defaults.aipref = _parse_aipref_or_exit(aipref).serialize()
     save_defaults(defaults)
     click.echo("Valores por defecto actualizados.")
+
+
+@main.command()
+@click.option(
+    "--base-url", default=None, help="URL raíz del sitio, p. ej. https://editorial.ejemplo/"
+)
+@click.option(
+    "--out",
+    "out_dir",
+    type=click.Path(path_type=Path),
+    default=Path("publicar"),
+    show_default=True,
+    help="Carpeta donde se generan los archivos (no se sube nada).",
+)
+@click.option("--reservation", type=click.IntRange(0, 1), default=None)
+@click.option("--policy", "policy_url", default=None, help="URL de la política TDM.")
+@click.option("--aipref", default=None, help='Ej.: "train-ai=n, ai-use=n, search=y"')
+@click.option("--location", default="/", show_default=True, help="Patrón de rutas de la regla.")
+@click.option(
+    "--check",
+    "check_file",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Solo validar un tdmrep.json existente.",
+)
+def site(
+    base_url: str | None,
+    out_dir: Path,
+    reservation: int | None,
+    policy_url: str | None,
+    aipref: str | None,
+    location: str,
+    check_file: Path | None,
+) -> None:
+    """Genera las señales TDM del sitio web: /.well-known/tdmrep.json, cabeceras
+    HTTP para Apache y Nginx, la regla Content-Usage de robots.txt y las
+    metaetiquetas HTML. No publica nada: deja los archivos en --out.
+    """
+    if check_file is not None:
+        try:
+            data = json.loads(check_file.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            click.echo(f"[ERROR] JSON inválido: {exc}")
+            sys.exit(1)
+        errors, warnings = validate_tdmrep_json(data)
+        for warning in warnings:
+            click.echo(f"[AVISO] {warning}")
+        for error in errors:
+            click.echo(f"[ERROR] {error}")
+        if errors:
+            sys.exit(1)
+        click.echo(f"[OK] {check_file} cumple TDMRep (sec. 6.1).")
+        return
+
+    if not base_url:
+        click.echo("Error: falta --base-url (o use --check ARCHIVO para validar).")
+        sys.exit(2)
+    defaults = load_defaults()
+    reservation = reservation if reservation is not None else defaults.reservation
+    policy_url = policy_url or defaults.policy_url
+    prefs = _parse_aipref_or_exit(aipref or defaults.aipref)
+    for warning in prefs.check_consistency(reservation):
+        click.echo(f"[AVISO] {warning}")
+    try:
+        if policy_url:
+            validate_policy_url(policy_url)
+        files = build_site_artifacts(base_url, reservation, policy_url, prefs, location)
+    except (ValueError, TDMSealError) as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(2)
+    for rel, path in write_site_artifacts(out_dir, files).items():
+        click.echo(f"[OK] {rel} -> {path}")
+    click.echo(f"\nLea {out_dir / 'LEEME.txt'} para saber dónde va cada archivo.")
 
 
 def _publisher_to_dict(defaults: AppDefaults) -> dict:
@@ -281,6 +378,7 @@ def _publisher_to_dict(defaults: AppDefaults) -> dict:
             "rights_email": defaults.publisher.rights_email,
         },
         "tdm": {"reservation": defaults.reservation, "policy_url": defaults.policy_url},
+        "aipref": defaults.aipref,
     }
 
 

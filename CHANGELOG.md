@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.7.0] - 2026-11-19
+
+Fases 3 y 5 del plan, fusionadas: AIPREF solo puede expresarse a nivel de
+sitio, así que van juntas.
+
+### Añadido
+
+- **`tdmseal site --base-url URL --out CARPETA`** (`tdmseal/site.py`):
+  genera sin publicar nada
+  - `.well-known/tdmrep.json` (TDMRep sec. 6.1);
+  - `servidor/apache.conf` y `servidor/nginx.conf` con las cabeceras HTTP
+    `tdm-reservation`, `tdm-policy` (sec. 6.2, la vía preferida) y
+    `Content-Usage` (AIPREF), y el tipo JSON para `tdmrep.json`;
+  - `servidor/robots-content-usage.txt`: líneas para **añadir** al robots.txt;
+  - `servidor/html-meta.html`: metaetiquetas TDMRep (sec. 6.3);
+  - `LEEME.txt` con dónde va cada archivo.
+- **`tdmseal site --check tdmrep.json`**: valida un archivo existente contra
+  TDMRep (arreglo, `location` con `/` o `*` y `$` solo al final,
+  `tdm-reservation` 0/1 numérico, `tdm-policy` URL absoluta; avisa de
+  política con reserva 0 y de propiedades desconocidas).
+- **Vocabulario IETF AIPREF** (`tdmseal/aipref.py`), según
+  draft-ietf-aipref-vocab-08 y attach-05: categorías `train-ai`, `ai-use`,
+  `search`; por defecto `train-ai=n, ai-use=n, search=y` (el catálogo sigue
+  apareciendo en buscadores). Se rechazan categorías que el borrador no
+  define (`tdm`, `train-genai`…) para no emitir señales que nadie entiende.
+  Aviso si se niegan usos de IA con `tdm-reservation` 0.
+- `tdmseal seal --aipref` y `tdmseal config set --aipref`: la preferencia
+  se registra en el reporte (`aipref`, con `embedded_in_file: false`).
+  **Limitación documentada:** el borrador no define cómo incrustarla en PDF
+  ni EPUB (attach-05 sec. 1.3.1), así que no se escribe en el archivo.
+
 ## [0.6.0] - 2026-11-19
 
 ### Añadido

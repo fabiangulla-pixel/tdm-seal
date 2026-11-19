@@ -13,10 +13,19 @@ legible por máquinas, de que los derechos de minería de textos y datos están
 reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
 padre) para la especificación funcional y técnica completa.
 
-## Estado actual (v0.6.0 — PDF y EPUB + PDF/A + políticas + ISCC de contenido)
+## Estado actual (v0.7.0 — PDF y EPUB + ISCC + señales de sitio + AIPREF)
 
 Implementado y con pruebas automatizadas:
 
+- **Señales del sitio web**: `tdmseal site` genera
+  `/.well-known/tdmrep.json`, cabeceras HTTP para Apache y Nginx
+  (`tdm-reservation`, `tdm-policy`, `Content-Usage`), la regla de
+  robots.txt y las metaetiquetas HTML; `tdmseal site --check` valida un
+  `tdmrep.json`. No se publica nada: los archivos quedan en una carpeta;
+- **preferencias de IA (IETF AIPREF)**: `train-ai`, `ai-use`, `search`;
+  por defecto `train-ai=n, ai-use=n, search=y`. Van en la cabecera
+  `Content-Usage` y en robots.txt, y quedan registradas en el reporte. El
+  borrador aún no define cómo incrustarlas en PDF o EPUB;
 - **EPUB 2 y 3**: `tdm:reservation` / `tdm:policy` en el paquete OPF según
   TDMRep, cambiando solo el OPF (el resto del contenedor queda idéntico,
   `mimetype` primero y sin comprimir). EPUB con DRM → se omite (`TDM022`).
@@ -77,10 +86,8 @@ Implementado y con pruebas automatizadas:
 - los PDF de prueba se generan con pikepdf; faltan fixtures reales de
   PDF/A, PDF/UA, firmados y con formularios.
 
-**Pendiente** (hoja de ruta v0.7–v1.0): señales
-de sitio (`tdmrep.json` con `tdmseal site`, cabeceras HTTP), política ODRL
-completa, preferencias IETF AIPREF, aviso visible opcional, manifiesto de
-catálogo y empaquetado 1.0.
+**Pendiente** (hoja de ruta v0.8–v1.0): política ODRL completa, aviso
+visible opcional, manifiesto de catálogo y empaquetado 1.0.
 
 ## Instalación
 
@@ -152,6 +159,12 @@ tdmseal audit ./catalogo --recursive
 # Ver / guardar valores por defecto (editorial, reserva, política)
 tdmseal config show
 tdmseal config set --publisher-name "Editorial Universidad Ejemplo" --publisher-acronym EUE
+
+# Señales del sitio web (tdmrep.json, cabeceras, robots.txt, metaetiquetas)
+tdmseal site --base-url https://editorial.example.edu/ --out ./publicar \
+  --policy https://editorial.example.edu/tdm/policies/1 \
+  --aipref "train-ai=n, ai-use=n, search=y"
+tdmseal site --check ./publicar/.well-known/tdmrep.json
 
 # Generar policy.jsonld, policy.html y tdmrep.json para el sitio web
 tdmseal policy build --output-dir ./publicar \

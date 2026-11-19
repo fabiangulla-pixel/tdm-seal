@@ -125,3 +125,5 @@ class SealResult:
     # ISCC completo (ContentIscc) de la entrada y de la salida, con --iscc.
     iscc_input: object | None = None
     iscc_output: object | None = None
+    # Preferencias AIPREF declaradas (AiPreferences), solo para el reporte.
+    aipref: object | None = None

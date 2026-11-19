@@ -197,9 +197,11 @@ def test_cli_iscc_text_output(make_text_pdf):
     assert "Text-Code:" in out.output
 
 
-def test_cli_seal_with_iscc_flag(make_text_pdf, monkeypatch, tmp_path):
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("HOME", str(tmp_path))
+def test_cli_seal_with_iscc_flag(make_text_pdf, monkeypatch):
+    import tdmseal.cli as cli_module
+    from tdmseal.appconfig import AppDefaults
+
+    monkeypatch.setattr(cli_module, "load_defaults", lambda *a, **k: AppDefaults())
     pdf_path = make_text_pdf("libro.pdf")
 
     out = CliRunner().invoke(cli_main, ["seal", str(pdf_path), "--reservation", "1", "--iscc"])
@@ -208,3 +210,6 @@ def test_cli_seal_with_iscc_flag(make_text_pdf, monkeypatch, tmp_path):
     assert "ISCC original:" in out.output
     report = json.loads(pdf_path.with_name("libro_TDM.pdf.report.json").read_text(encoding="utf-8"))
     assert report["iscc"]["content_code_unchanged_by_sealing"] is True
+    # AIPREF por defecto: registrado en el reporte, nunca incrustado en el archivo.
+    assert report["aipref"]["content_usage"] == "train-ai=n, ai-use=n, search=y"
+    assert report["aipref"]["embedded_in_file"] is False

@@ -11,6 +11,7 @@ import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from tdmseal.aipref import DEFAULT_PREFERENCES
 from tdmseal.models import PublisherInfo
 
 DEFAULT_CONFIG_PATH = Path.home() / ".tdmseal" / "config.json"
@@ -21,6 +22,8 @@ class AppDefaults:
     publisher: PublisherInfo = field(default_factory=PublisherInfo)
     reservation: int = 1
     policy_url: str | None = None
+    # Preferencias IETF AIPREF (ver tdmseal/aipref.py), en forma `train-ai=n, ...`.
+    aipref: str = DEFAULT_PREFERENCES
 
 
 def load_defaults(path: Path = DEFAULT_CONFIG_PATH) -> AppDefaults:
@@ -38,6 +41,7 @@ def load_defaults(path: Path = DEFAULT_CONFIG_PATH) -> AppDefaults:
         ),
         reservation=tdm_data.get("reservation", 1),
         policy_url=tdm_data.get("policy_url"),
+        aipref=data.get("aipref") or DEFAULT_PREFERENCES,
     )
 
 
@@ -46,5 +50,6 @@ def save_defaults(defaults: AppDefaults, path: Path = DEFAULT_CONFIG_PATH) -> No
     data = {
         "publisher": asdict(defaults.publisher),
         "tdm": {"reservation": defaults.reservation, "policy_url": defaults.policy_url},
+        "aipref": defaults.aipref,
     }
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")

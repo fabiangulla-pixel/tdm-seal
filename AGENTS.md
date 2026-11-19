@@ -60,7 +60,13 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v0.6.0, 19-nov-2026)
+## Estado (v0.7.0, 19-nov-2026)
+
+`site.py` (`tdmseal site`) y `aipref.py`. AIPREF es un borrador del IETF:
+`CATEGORIES` está fijado a vocab-08 y `test_categories_match_vocab_08` falla
+a propósito si se cambia; antes de tocarlo, releer el borrador vigente y
+actualizar `resources/SOURCES.md`. Las pruebas de CLI deben parchear
+`tdmseal.cli.load_defaults` (la ruta de config se fija al importar).
 
 EPUB 2/3 en `epub/` (OPF, contenedor, DRM, EPUBCheck opcional); CLI y GUI
 pasan por `documents.py` (`inspect_document`, `seal_document`). Al tocar un

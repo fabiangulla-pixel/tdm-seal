@@ -21,7 +21,16 @@ def inspect_document(path: Path) -> PDFInfo | EPUBInfo:
 
 
 def seal_document(path: Path, config: SealConfig) -> SealResult:
-    """Sella un PDF o un EPUB según su extensión."""
+    """Sella un PDF o un EPUB según su extensión.
+
+    Las preferencias AIPREF de `config` se registran en el resultado (y por
+    tanto en el reporte), con un aviso si contradicen la reserva TDMRep.
+    """
     if document_kind(path) == "epub":
-        return seal_epub(path, config)
-    return seal_pdf(path, config)
+        result = seal_epub(path, config)
+    else:
+        result = seal_pdf(path, config)
+    if config.aipref is not None:
+        result.aipref = config.aipref
+        result.warnings.extend(config.aipref.check_consistency(config.policy.reservation))
+    return result

@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from tdmseal.aipref import AiPreferences, AiPrefError, default_preferences
 from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
 from tdmseal.discovery import iter_documents
@@ -415,7 +416,11 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Política TDM inválida", str(exc))
             return
 
-        config = SealConfig(policy=policy, compute_iscc=self.chk_iscc.isChecked())
+        try:
+            aipref = AiPreferences.parse(load_defaults().aipref)
+        except AiPrefError:
+            aipref = default_preferences()
+        config = SealConfig(policy=policy, compute_iscc=self.chk_iscc.isChecked(), aipref=aipref)
         publisher = self._current_publisher()
         self._set_buttons_enabled(False)
         self.status_label.setText("Aplicando TDM…")

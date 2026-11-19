@@ -89,6 +89,7 @@ def build_report(result: SealResult, publisher: PublisherInfo | None = None) -> 
         "input": _pdf_info_to_dict(result.before),
         "output": _pdf_info_to_dict(result.after),
         "iscc": _iscc_block(result),
+        "aipref": result.aipref.to_report() if result.aipref is not None else None,
         "validation": result.validations,
         "warnings": result.warnings,
         "errors": result.errors,

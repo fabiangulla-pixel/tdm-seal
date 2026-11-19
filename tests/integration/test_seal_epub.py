@@ -228,8 +228,10 @@ def test_iter_documents_finds_pdf_and_epub(make_epub, make_pdf, tmp_path):
 
 
 def test_cli_seal_folder_with_pdf_and_epub(make_epub, make_pdf, tmp_path, monkeypatch):
-    monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("HOME", str(tmp_path))
+    import tdmseal.cli as cli_module
+    from tdmseal.appconfig import AppDefaults
+
+    monkeypatch.setattr(cli_module, "load_defaults", lambda *a, **k: AppDefaults())
     make_epub("a.epub")
     make_pdf("b.pdf")
 
