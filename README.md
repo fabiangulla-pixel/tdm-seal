@@ -49,9 +49,11 @@ Implementado y con pruebas automatizadas:
 - **validación PDF/A con veraPDF**, opcional: si `verapdf` está en el PATH
   se valida el resultado; si no, el reporte marca `SKIPPED` con un aviso que
   explica cómo instalarlo, y el sellado sigue;
-- **Policy Builder**: `tdmseal policy build` (o el botón "Generar
+- **Política de licencia**: `tdmseal policy build` (o el botón "Generar
   artefactos de política…" de la GUI) genera `policy.jsonld` (ODRL, perfil
-  TDMRep), `policy.html` y `tdmrep.json` para publicar en el sitio;
+  TDMRep, con condiciones distintas para investigación y otros fines),
+  `policy.html` (una invitación a licenciar, no un "no") y `tdmrep.json`;
+  `tdmseal policy check` valida una política contra el perfil;
 - **ISCC rápido de bytes** (Data-Code + Instance-Code) en `inspect`,
   `show` y `audit`: identifica el archivo exacto (cambia al sellar);
 - inspección de PDF (versión, páginas, cifrado, firma digital, XMP, TDMRep);
@@ -86,8 +88,8 @@ Implementado y con pruebas automatizadas:
 - los PDF de prueba se generan con pikepdf; faltan fixtures reales de
   PDF/A, PDF/UA, firmados y con formularios.
 
-**Pendiente** (hoja de ruta v0.8–v1.0): política ODRL completa, aviso
-visible opcional, manifiesto de catálogo y empaquetado 1.0.
+**Pendiente** (hoja de ruta v0.9–v1.0): aviso visible opcional,
+manifiesto de catálogo y empaquetado 1.0.
 
 ## Instalación
 
@@ -170,7 +172,9 @@ tdmseal site --check ./publicar/.well-known/tdmrep.json
 tdmseal policy build --output-dir ./publicar \
   --publisher-name "Editorial Universidad Ejemplo" \
   --publisher-website https://editorial.example.edu \
-  --publisher-email derechos@example.edu
+  --publisher-email derechos@example.edu \
+  --research consent --non-research compensate
+tdmseal policy check ./publicar/policy.jsonld
 ```
 
 Cada `seal` genera `archivo_TDM.pdf` junto al original y

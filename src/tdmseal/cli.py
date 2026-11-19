@@ -21,6 +21,7 @@ from tdmseal.iscc.content import (
 )
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
+from tdmseal.policy.policy_validator import validate_policy_jsonld
 from tdmseal.reporting.json_report import write_report
 from tdmseal.site import build_site_artifacts, validate_tdmrep_json, write_site_artifacts
 from tdmseal.xmp.tdmrep import validate_policy_url
@@ -398,6 +399,25 @@ def policy() -> None:
     help="Exigir compensación económica además de consentimiento.",
 )
 @click.option("--policy-id", default="1", show_default=True)
+@click.option(
+    "--policy-url",
+    default=None,
+    help="URL donde se publicará policy.jsonld (por defecto https://DOMINIO/tdm/policies/ID).",
+)
+@click.option(
+    "--research",
+    type=click.Choice(["free", "consent", "compensate", "none"]),
+    default=None,
+    help="Condiciones para investigación (por defecto: consent).",
+)
+@click.option(
+    "--non-research",
+    type=click.Choice(["free", "consent", "compensate", "none"]),
+    default=None,
+    help="Condiciones para otros fines, incluido el comercial (por defecto: consent).",
+)
+@click.option("--license-url", default=None, help="Página o formulario para pedir licencias.")
+@click.option("--aipref", default=None, help='Ej.: "train-ai=n, ai-use=n, search=y"')
 def policy_build(
     output_dir: Path,
     publisher_name: str | None,
@@ -405,11 +425,17 @@ def policy_build(
     publisher_email: str | None,
     require_compensation: bool,
     policy_id: str,
+    policy_url: str | None,
+    research: str | None,
+    non_research: str | None,
+    license_url: str | None,
+    aipref: str | None,
 ) -> None:
     """Genera los artefactos de política TDM a partir de los datos de la editorial.
 
-    Los datos no indicados se toman de los valores por defecto guardados con
-    `tdmseal config set`.
+    La política es una oferta de licencia (ODRL, perfil TDMRep): describe en
+    qué condiciones se puede pedir permiso, por finalidad. Los datos no
+    indicados se toman de los valores por defecto (`tdmseal config set`).
     """
     defaults = load_defaults()
     publisher = PublisherInfo(
@@ -418,7 +444,15 @@ def policy_build(
         website=publisher_website or defaults.publisher.website,
         rights_email=publisher_email or defaults.publisher.rights_email,
     )
-    options = PolicyOptions(require_compensation=require_compensation, policy_id=policy_id)
+    options = PolicyOptions(
+        require_compensation=require_compensation,
+        policy_id=policy_id,
+        policy_url=policy_url,
+        research=research,
+        non_research=non_research,
+        license_contact_url=license_url,
+        aipref=_parse_aipref_or_exit(aipref or defaults.aipref),
+    )
 
     try:
         paths = write_policy_artifacts(output_dir, publisher, options)
@@ -428,6 +462,23 @@ def policy_build(
 
     for name, path in paths.items():
         click.echo(f"[OK] {name} -> {path}")
+
+
+@policy.command("check")
+@click.argument("policy_file", type=click.Path(exists=True, path_type=Path))
+def policy_check(policy_file: Path) -> None:
+    """Valida un policy.jsonld contra el perfil ODRL de TDMRep."""
+    try:
+        data = json.loads(policy_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        click.echo(f"[ERROR] JSON inválido: {exc}")
+        sys.exit(1)
+    errors = validate_policy_jsonld(data)
+    for error in errors:
+        click.echo(f"[ERROR] {error}")
+    if errors:
+        sys.exit(1)
+    click.echo(f"[OK] {policy_file} cumple el perfil ODRL de TDMRep.")
 
 
 if __name__ == "__main__":

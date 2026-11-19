@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.8.0] - 2026-11-19
+
+### Añadido
+
+- **Política ODRL completa** (perfil TDMRep, sec. 7): condiciones por
+  finalidad con la restricción `purpose` (`tdm:research` /
+  `tdm:non-research`). Cada una puede ser `free`, `consent`, `compensate`
+  o `none`. Un uso que no se ofrece **no se convierte en `prohibition`**
+  (el perfil la desaconseja): simplemente no aparece como permiso. Si no se
+  ofrece nada, la política se rechaza, porque una oferta vacía no sirve.
+- Titular con vCard (`fn`, `nickname`, `hasEmail`, `hasURL`) y página o
+  formulario de licencias (`--license-url`). URL de publicación explícita
+  (`--policy-url`), usada a la vez en `uid`, `tdmrep.json` y el HTML.
+- **`policy.html` reescrito como invitación a licenciar**: resumen inicial
+  ("la reserva no es una negativa definitiva, sino una invitación a pedir
+  licencia"), tabla de condiciones por finalidad, qué incluir en la
+  solicitud, tabla de preferencias AIPREF, señales legibles por máquinas,
+  metaetiquetas TDMRep en el propio `<head>` y resumen en inglés.
+- **`tdmseal policy check policy.jsonld`** y validador del perfil
+  (`validate_policy_jsonld`): `@context`, `uid`, `Offer`, `profile`,
+  `assigner` vCard, permisos `tdm:mine`, deberes y restricciones definidos,
+  sin `obligation` ni `prohibition`. El Policy Builder lo aplica siempre
+  antes de escribir.
+- `tdmseal policy build`: opciones `--policy-url`, `--research`,
+  `--non-research`, `--license-url`, `--aipref`.
+
 ## [0.7.0] - 2026-11-19
 
 Fases 3 y 5 del plan, fusionadas: AIPREF solo puede expresarse a nivel de

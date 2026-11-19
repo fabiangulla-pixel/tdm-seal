@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from tdmseal.aipref import default_preferences
 from tdmseal.models import PublisherInfo
 from tdmseal.policy.builder import (
     PolicyOptions,
@@ -12,6 +13,7 @@ from tdmseal.policy.builder import (
     domain_from_website,
     write_policy_artifacts,
 )
+from tdmseal.policy.policy_validator import validate_policy_jsonld
 
 
 def _publisher(**overrides) -> PublisherInfo:
@@ -79,6 +81,103 @@ def test_html_escapes_publisher_name():
 
     assert "<Ejemplo>" not in artifacts["policy.html"]
     assert "&lt;Ejemplo&gt;" in artifacts["policy.html"]
+
+
+def _jsonld(**options) -> dict:
+    return json.loads(
+        build_policy_artifacts(_publisher(), PolicyOptions(**options))["policy.jsonld"]
+    )
+
+
+def test_jsonld_follows_tdmrep_profile():
+    policy = _jsonld()
+
+    assert policy["@context"] == [
+        "http://www.w3.org/ns/odrl.jsonld",
+        "http://www.w3.org/ns/tdmrep.jsonld",
+    ]
+    assert policy["@type"] == "Offer"
+    assert policy["profile"] == "http://www.w3.org/ns/tdmrep"
+    assert policy["assigner"]["vcard:nickname"] == "EUE"
+    assert policy["assigner"]["vcard:hasURL"] == "https://editorial.example.edu"
+    assert "prohibition" not in policy and "obligation" not in policy
+    assert validate_policy_jsonld(policy) == []
+
+
+def test_different_terms_per_purpose_use_purpose_constraint():
+    policy = _jsonld(research="consent", non_research="compensate")
+
+    by_purpose = {
+        p["constraint"][0]["rightOperand"]: {d["action"] for d in p["duty"]}
+        for p in policy["permission"]
+    }
+    assert by_purpose == {
+        "tdm:research": {"obtainConsent"},
+        "tdm:non-research": {"obtainConsent", "compensate"},
+    }
+
+
+def test_not_offered_purpose_is_omitted_not_prohibited():
+    policy = _jsonld(research="consent", non_research="none")
+
+    assert len(policy["permission"]) == 1
+    assert policy["permission"][0]["constraint"][0]["rightOperand"] == "tdm:research"
+    assert "prohibition" not in policy
+
+
+def test_nothing_offered_is_rejected():
+    with pytest.raises(ValueError, match="ningún"):
+        _jsonld(research="none", non_research="none")
+
+
+def test_free_term_has_no_duty():
+    policy = _jsonld(research="free", non_research="free")
+    assert policy["permission"] == [{"action": "tdm:mine"}]
+
+
+def test_explicit_policy_url_is_used_everywhere():
+    url = "https://otro.example.org/politicas/tdm.jsonld"
+    artifacts = build_policy_artifacts(_publisher(), PolicyOptions(policy_url=url))
+
+    assert json.loads(artifacts["policy.jsonld"])["uid"] == url
+    assert json.loads(artifacts["tdmrep.json"])[0]["tdm-policy"] == url
+    assert url in artifacts["policy.html"]
+
+
+def test_invalid_policy_url_rejected():
+    with pytest.raises(ValueError):
+        build_policy_artifacts(_publisher(), PolicyOptions(policy_url="politica.jsonld"))
+
+
+def test_html_is_an_invitation_to_license_and_shows_terms():
+    html = build_policy_artifacts(
+        _publisher(),
+        PolicyOptions(research="consent", non_research="compensate", aipref=default_preferences()),
+    )["policy.html"]
+
+    assert "invitación a pedir licencia" in html
+    assert "Requiere autorización previa y una compensación económica" in html
+    assert "train-ai=n, ai-use=n, search=y" in html
+    assert "Summary in English" in html
+    assert '<meta name="tdm-reservation" content="1">' in html
+
+
+@pytest.mark.parametrize(
+    "mutate, fragment",
+    [
+        (lambda p: p.update({"@type": "Policy"}), "Offer"),
+        (lambda p: p.update({"prohibition": []}), "prohibition"),
+        (lambda p: p.update({"permission": []}), "permission"),
+        (lambda p: p["permission"][0].update({"action": "use"}), "tdm:mine"),
+        (lambda p: p["permission"][0].update({"duty": [{"action": "attribute"}]}), "deber"),
+        (lambda p: p["assigner"].update({"foo": "x"}), "vCard"),
+        (lambda p: p.update({"@context": ["http://www.w3.org/ns/odrl.jsonld"]}), "@context"),
+    ],
+)
+def test_validator_catches_profile_violations(mutate, fragment):
+    policy = _jsonld()
+    mutate(policy)
+    assert any(fragment in e for e in validate_policy_jsonld(policy))
 
 
 def test_write_policy_artifacts_creates_files(tmp_path: Path):
