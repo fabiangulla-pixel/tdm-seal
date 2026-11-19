@@ -39,13 +39,23 @@ def _count_attachments(pdf: pikepdf.Pdf) -> int:
     return len(entries) // 2
 
 
-def compare_non_metadata_invariants(input_path: Path, output_path: Path) -> dict:
-    """Compara `input_path` y `output_path`; devuelve {"status", "issues"}."""
+def compare_non_metadata_invariants(
+    input_path: Path, output_path: Path, added_pages: int = 0
+) -> dict:
+    """Compara `input_path` y `output_path`; devuelve {"status", "issues"}.
+
+    `added_pages` admite páginas nuevas **al final** (aviso visible): las
+    existentes deben seguir idénticas en número, geometría y rotación.
+    """
     issues: list[str] = []
     with pikepdf.open(input_path) as before, pikepdf.open(output_path) as after:
-        if len(before.pages) != len(after.pages):
-            issues.append(f"número de páginas cambió: {len(before.pages)} -> {len(after.pages)}")
-        elif _page_geometry(before) != _page_geometry(after):
+        expected = len(before.pages) + added_pages
+        if len(after.pages) != expected:
+            issues.append(
+                f"número de páginas cambió: {len(before.pages)} -> {len(after.pages)} "
+                f"(se esperaban {expected})"
+            )
+        elif _page_geometry(before) != _page_geometry(after)[: len(before.pages)]:
             issues.append("geometría o rotación de alguna página cambió")
 
         if _count_annotations(before) != _count_annotations(after):

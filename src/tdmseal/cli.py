@@ -20,6 +20,7 @@ from tdmseal.iscc.content import (
     content_extra_available,
 )
 from tdmseal.models import PublisherInfo, TDMPolicy
+from tdmseal.notice import notice_from_publisher
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.policy.policy_validator import validate_policy_jsonld
 from tdmseal.reporting.json_report import write_report
@@ -71,6 +72,12 @@ def main() -> None:
     help='Preferencias IETF AIPREF, p. ej. "train-ai=n, ai-use=n, search=y" '
     "(se registran en el reporte; ver `tdmseal site`).",
 )
+@click.option(
+    "--visible-notice",
+    is_flag=True,
+    help="Añade una página final (PDF) o un documento final (EPUB) con el aviso de "
+    "reserva en lenguaje claro. Cambia el contenido visible: desactivado por defecto.",
+)
 def seal(
     target: Path,
     reservation: int | None,
@@ -85,6 +92,7 @@ def seal(
     publisher_email: str | None,
     with_iscc: bool,
     aipref: str | None,
+    visible_notice: bool,
 ) -> None:
     """Sella un PDF/EPUB o una carpeta de ellos con una declaración TDMRep.
 
@@ -111,6 +119,12 @@ def seal(
         compute_iscc=with_iscc,
         aipref=_parse_aipref_or_exit(aipref or defaults.aipref),
     )
+    if visible_notice:
+        try:
+            config.notice = notice_from_publisher(publisher, policy.policy_url)
+        except ValueError as exc:
+            click.echo(f"Error: {exc} Use --publisher-name y --publisher-email.")
+            sys.exit(2)
 
     pdfs = iter_documents(target, recursive)
     if not pdfs:

@@ -11,20 +11,31 @@
 from __future__ import annotations
 
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from tdmseal.config import SealConfig
 from tdmseal.epub.inspector import inspect_epub, read_opf_bytes
-from tdmseal.epub.opf import parse_opf, serialize_opf, write_iscc, write_tdm
+from tdmseal.epub.opf import (
+    add_spine_document,
+    has_manifest_item,
+    is_epub3,
+    is_fixed_layout,
+    parse_opf,
+    serialize_opf,
+    write_iscc,
+    write_tdm,
+)
 from tdmseal.epub.writer import compare_container, rewrite_epub
 from tdmseal.errors import (
     TDM022_EPUB_DRM,
+    TDM023_NOTICE_NOT_ALLOWED,
     TDM033_EPUB_CONTAINER_CHANGED,
     TDM034_EPUBCHECK_NEW_ERRORS,
     TDM050_OUTPUT_EXISTS,
     TDMSealError,
 )
 from tdmseal.models import SealResult
+from tdmseal.notice import NOTICE_FILE, NOTICE_MARKER, build_epub_notice_xhtml
 from tdmseal.pdf.writer import create_output_path
 from tdmseal.validation.epubcheck_validator import run_epubcheck
 
@@ -79,9 +90,22 @@ def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
         if iscc_input is not None:
             warnings.extend(iscc_input.warnings)
 
+    additions: dict[str, bytes] = {}
     try:
         original_opf = read_opf_bytes(input_path, before.opf_path)
         opf_root = parse_opf(original_opf)
+        if config.notice is not None and is_fixed_layout(opf_root):
+            return SealResult(
+                input_path,
+                None,
+                "skipped",
+                reason_code=TDM023_NOTICE_NOT_ALLOWED,
+                before=before,
+                errors=[
+                    "No se añadió el aviso visible: el EPUB es de maquetación fija y una "
+                    "página fluida rompería su presentación. El archivo no será alterado."
+                ],
+            )
         operation = write_tdm(opf_root, config.policy)
         if iscc_input is not None:
             write_iscc(
@@ -90,8 +114,22 @@ def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
                 source_iscc=iscc_input.iscc,
                 source_datahash=iscc_input.datahash,
             )
+        if config.notice is not None:
+            if has_manifest_item(opf_root, NOTICE_MARKER):
+                warnings.append("El EPUB ya tenía el documento de aviso: no se añadió otro.")
+            else:
+                opf_dir = PurePosixPath(before.opf_path).parent
+                entry = str(opf_dir / NOTICE_FILE) if str(opf_dir) != "." else NOTICE_FILE
+                add_spine_document(opf_root, NOTICE_MARKER, NOTICE_FILE)
+                additions[entry] = build_epub_notice_xhtml(config.notice, is_epub3(opf_root))
+                warnings.append(
+                    f"Se añadió el documento de aviso {entry} al final de la lectura; "
+                    "los documentos existentes no se modificaron."
+                )
         new_opf = serialize_opf(opf_root, original_opf)
-        repaired = rewrite_epub(input_path, output_path, {before.opf_path: new_opf})
+        repaired = rewrite_epub(
+            input_path, output_path, {before.opf_path: new_opf}, additions=additions
+        )
     except (OSError, ValueError, KeyError, zipfile.BadZipFile) as exc:
         if output_path.exists():
             output_path.unlink()
@@ -123,7 +161,7 @@ def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
     validations["opf_re_read"] = "PASS" if not tdm_issues else "FAIL"
     warnings.extend(tdm_issues)
 
-    container = compare_container(input_path, output_path, {before.opf_path})
+    container = compare_container(input_path, output_path, {before.opf_path}, added=set(additions))
     validations["container_unchanged"] = container["status"]
     warnings.extend(container["issues"])
 
@@ -140,6 +178,12 @@ def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
         warnings.extend(reread["issues"])
         if iscc_input.text_code is None or iscc_output is None:
             validations["iscc_content_stable"] = "SKIPPED"
+        elif additions:
+            validations["iscc_content_stable"] = "SKIPPED"
+            warnings.append(
+                "Con el aviso visible el texto cambia y el Text-Code del EPUB sellado "
+                "difiere; el OPF declara el Text-Code de la obra original."
+            )
         elif iscc_output.text_code == iscc_input.text_code:
             validations["iscc_content_stable"] = "PASS"
         else:

@@ -21,6 +21,7 @@ se comprobó que no existía uno estándar (19-nov-2026).
 | `tdmseal:isccContentCode` | Text | Text-Code (Content-Code de texto) calculado sobre el texto del documento. **No cambia al sellar.** |
 | `tdmseal:isccSource` | Text | ISCC-CODE completo (Meta + Text + Data + Instance) del archivo **antes** de sellar. |
 | `tdmseal:isccSourceDatahash` | Text | Hash BLAKE3 (multihash, hex) del archivo antes de sellar. |
+| `tdmseal:visibleNotice` | Text | Número de la página de aviso añadida (solo con `--visible-notice`; ver `docs/aviso-visible.md`). No se usa en PDF/A, donde el aviso se rechaza. |
 
 Ejemplo:
 

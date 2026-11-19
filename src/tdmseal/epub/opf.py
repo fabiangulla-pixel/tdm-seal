@@ -183,6 +183,34 @@ def write_iscc(
             set_meta(root, f"tdmseal:{prop}", value, epub3)
 
 
+# ---- Aviso visible (documento XHTML añadido al final del spine) ----------------
+
+
+def is_fixed_layout(root: etree._Element) -> bool:
+    return get_meta(root, "rendition:layout") == "pre-paginated"
+
+
+def has_manifest_item(root: etree._Element, item_id: str) -> bool:
+    manifest = root.find(f"{{{OPF_NS}}}manifest")
+    return manifest is not None and any(i.get("id") == item_id for i in manifest)
+
+
+def add_spine_document(root: etree._Element, item_id: str, href: str) -> None:
+    """Añade un XHTML al manifiesto y al final del spine (lineal)."""
+    manifest = root.find(f"{{{OPF_NS}}}manifest")
+    spine = root.find(f"{{{OPF_NS}}}spine")
+    if manifest is None or spine is None:
+        raise ValueError("el paquete OPF no tiene <manifest> o <spine>")
+    item = etree.SubElement(manifest, f"{{{OPF_NS}}}item")
+    item.set("id", item_id)
+    item.set("href", href)
+    item.set("media-type", "application/xhtml+xml")
+    _indent_like_siblings(manifest, item)
+    itemref = etree.SubElement(spine, f"{{{OPF_NS}}}itemref")
+    itemref.set("idref", item_id)
+    _indent_like_siblings(spine, itemref)
+
+
 # ---- Metadatos descriptivos (para el Meta-Code) -------------------------------
 
 

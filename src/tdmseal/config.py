@@ -20,3 +20,5 @@ class SealConfig:
     # Preferencias IETF AIPREF (AiPreferences). No se incrustan en el archivo:
     # el borrador no lo define; se registran en el reporte (ver aipref.py).
     aipref: object | None = None
+    # Aviso visible (NoticeOptions). None = desactivado (por defecto).
+    notice: object | None = None

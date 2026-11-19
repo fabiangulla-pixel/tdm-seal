@@ -88,8 +88,14 @@ Implementado y con pruebas automatizadas:
 - los PDF de prueba se generan con pikepdf; faltan fixtures reales de
   PDF/A, PDF/UA, firmados y con formularios.
 
-**Pendiente** (hoja de ruta v0.9–v1.0): aviso visible opcional,
-manifiesto de catálogo y empaquetado 1.0.
+- **aviso visible opcional** (desactivado por defecto, `--visible-notice`):
+  página final en PDF o documento final en EPUB con la reserva en lenguaje
+  claro, sin tocar el contenido existente; se rechaza en PDF/A, PDF/UA,
+  firmados y EPUB de maquetación fija (`TDM023`). Ver
+  `docs/aviso-visible.md`.
+
+**Pendiente** (hoja de ruta v0.10–v1.0): manifiesto de catálogo y
+empaquetado 1.0.
 
 ## Instalación
 

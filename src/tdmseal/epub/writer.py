@@ -24,8 +24,14 @@ def _clone_info(info: zipfile.ZipInfo) -> zipfile.ZipInfo:
     return clone
 
 
-def rewrite_epub(input_path: Path, output_path: Path, replacements: dict[str, bytes]) -> bool:
-    """Copia el EPUB cambiando solo las entradas de `replacements`.
+def rewrite_epub(
+    input_path: Path,
+    output_path: Path,
+    replacements: dict[str, bytes],
+    additions: dict[str, bytes] | None = None,
+) -> bool:
+    """Copia el EPUB cambiando solo las entradas de `replacements` y añadiendo
+    al final las de `additions` (aviso visible).
 
     Devuelve True si hubo que reparar la entrada `mimetype` (no estaba
     primera o estaba comprimida), cosa que se informa como aviso.
@@ -53,22 +59,36 @@ def rewrite_epub(input_path: Path, output_path: Path, replacements: dict[str, by
                 if data is None:
                     data = zin.read(info.filename)
                 zout.writestr(_clone_info(info), data)
+            existing = {i.filename for i in infos}
+            for name, data in (additions or {}).items():
+                if name in existing:
+                    raise ValueError(f"ya existe una entrada {name} en el EPUB")
+                new = zipfile.ZipInfo(name, date_time=mimetype_info.date_time)
+                new.compress_type = zipfile.ZIP_DEFLATED
+                zout.writestr(new, data)
             if zin.comment:
                 zout.comment = zin.comment
     return repaired
 
 
-def compare_container(input_path: Path, output_path: Path, changed: set[str]) -> dict:
-    """Comprueba que solo cambiaron las entradas `changed` y que `mimetype` es válido."""
+def compare_container(
+    input_path: Path, output_path: Path, changed: set[str], added: set[str] | None = None
+) -> dict:
+    """Comprueba que solo cambiaron `changed`, que solo se añadieron `added` (al
+    final) y que `mimetype` es válido."""
     issues: list[str] = []
+    added = added or set()
     with zipfile.ZipFile(input_path) as a, zipfile.ZipFile(output_path) as b:
         names_a = [i.filename for i in a.infolist() if i.filename != "mimetype"]
         names_b = [i.filename for i in b.infolist() if i.filename != "mimetype"]
+        if names_b[len(names_a) :] and set(names_b[len(names_a) :]) != added:
+            issues.append(f"entradas añadidas inesperadas: {names_b[len(names_a) :]}")
+        names_b = names_b[: len(names_a)]
         if names_a != names_b:
             issues.append("cambió la lista u orden de entradas del contenedor")
         crc_a = {i.filename: i.CRC for i in a.infolist()}
         for info in b.infolist():
-            if info.filename in changed or info.filename == "mimetype":
+            if info.filename in changed or info.filename in added or info.filename == "mimetype":
                 continue
             if crc_a.get(info.filename) != info.CRC:
                 issues.append(f"cambió el contenido de {info.filename}")

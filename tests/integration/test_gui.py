@@ -121,6 +121,26 @@ def test_gui_audits_and_seals_epub(qtbot, make_epub):
     assert epub_path.with_name("gui_libro_TDM.epub").exists()
 
 
+def test_visible_notice_is_off_by_default_and_needs_confirmation(qtbot, monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    assert not window.chk_notice.isChecked()
+
+    monkeypatch.setattr(
+        gui_module.QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.No
+    )
+    window.chk_notice.setChecked(True)
+    assert not window.chk_notice.isChecked()
+
+    monkeypatch.setattr(
+        gui_module.QMessageBox, "question", lambda *a, **k: QMessageBox.StandardButton.Yes
+    )
+    window.chk_notice.setChecked(True)
+    assert window.chk_notice.isChecked()
+
+
 def test_iscc_unchecked_leaves_column_empty(qtbot, make_text_pdf):
     window = gui_module.MainWindow()
     qtbot.addWidget(window)

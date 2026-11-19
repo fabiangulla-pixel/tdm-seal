@@ -42,6 +42,7 @@ from tdmseal.documents import inspect_document, seal_document
 from tdmseal.errors import TDMSealError
 from tdmseal.iscc.content import compute_content_iscc, content_extra_available
 from tdmseal.models import PublisherInfo, TDMPolicy
+from tdmseal.notice import notice_from_publisher
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
 
@@ -207,6 +208,19 @@ class MainWindow(QMainWindow):
         select_row.addWidget(self.chk_iscc)
         select_row.addStretch(1)
         layout.addLayout(select_row)
+
+        notice_row = QHBoxLayout()
+        self.chk_notice = QCheckBox("Añadir página de aviso visible (cambia el contenido)")
+        self.chk_notice.setToolTip(
+            "Añade al final una página (PDF) o un documento (EPUB) con la reserva en "
+            "lenguaje claro. No modifica las páginas existentes. No se aplica a PDF/A, "
+            "PDF/UA, PDF firmados ni EPUB de maquetación fija."
+        )
+        self.chk_notice.setChecked(False)
+        self.chk_notice.toggled.connect(self._confirm_notice)
+        notice_row.addWidget(self.chk_notice)
+        notice_row.addStretch(1)
+        layout.addLayout(notice_row)
 
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
@@ -383,6 +397,25 @@ class MainWindow(QMainWindow):
         else:
             self._set_row_text(row, 5, "listo", color=_OK_COLOR)
 
+    def _confirm_notice(self, checked: bool) -> None:
+        """Pide confirmación explícita: el aviso cambia el contenido visible."""
+        if not checked:
+            return
+        answer = QMessageBox.question(
+            self,
+            "Añadir aviso visible",
+            "El aviso visible añade una página final (PDF) o un documento final (EPUB) "
+            "con la reserva de derechos en lenguaje claro.\n\n"
+            "Las páginas existentes no se tocan, pero el archivo deja de ser idéntico "
+            "en contenido al original. ¿Desea activarlo?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            self.chk_notice.blockSignals(True)
+            self.chk_notice.setChecked(False)
+            self.chk_notice.blockSignals(False)
+
     def _on_iscc_done(self, row: int, result: object) -> None:
         if isinstance(result, Exception):
             self._set_row_text(row, ISCC_COL, f"error: {result}", color=_ERROR_COLOR)
@@ -422,6 +455,12 @@ class MainWindow(QMainWindow):
             aipref = default_preferences()
         config = SealConfig(policy=policy, compute_iscc=self.chk_iscc.isChecked(), aipref=aipref)
         publisher = self._current_publisher()
+        if self.chk_notice.isChecked():
+            try:
+                config.notice = notice_from_publisher(publisher, policy.policy_url)
+            except ValueError as exc:
+                QMessageBox.warning(self, "Faltan datos para el aviso", str(exc))
+                return
         self._set_buttons_enabled(False)
         self.status_label.setText("Aplicando TDM…")
 

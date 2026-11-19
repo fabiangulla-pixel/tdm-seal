@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0] - 2026-11-19
+
+### Añadido
+
+- **Aviso visible opcional, desactivado por defecto** (`tdmseal/notice.py`,
+  `docs/aviso-visible.md`): `tdmseal seal --visible-notice`, o la casilla de
+  la GUI con confirmación explícita. En PDF, una página final del tamaño de la
+  última; en EPUB, un XHTML al final del spine. Texto en español e inglés.
+  **Nunca se modifican páginas ni documentos existentes** (lo comprueban las
+  pruebas) y es idempotente.
+- Código **`TDM023`**: aviso rechazado en PDF firmados (aun con
+  `--force-signed`), PDF/A, PDF/UA y EPUB de maquetación fija. En PDF
+  etiquetados la página se marca como *Artifact*.
+- `compare_non_metadata_invariants(..., added_pages=N)` y
+  `compare_container(..., added=…)` admiten solo esas adiciones al final.
+- La plantilla del texto queda **pendiente de revisión de estilo** (una
+  única constante en `notice.py`).
+
 ## [0.8.0] - 2026-11-19
 
 ### Añadido
