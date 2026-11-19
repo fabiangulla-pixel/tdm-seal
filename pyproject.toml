@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tdm-seal"
-version = "0.5.0"
+version = "0.6.0"
 description = "Sellado declarativo de derechos TDM (TDMRep) para PDF editoriales"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,6 +28,11 @@ gui = [
 # ISCC de contenido (Text-Code): extracción de texto de PDF igual que iscc-sdk.
 iscc = [
     "pypdfium2>=4.30.0",
+]
+# ISCC de contenido para EPUB: el mismo extractor (Tika) que usa iscc-sdk.
+# Pesado (~110 MB); por eso va aparte y no entra en el .exe.
+iscc-epub = [
+    "iscc-tika>=0.6.0",
 ]
 
 [project.scripts]

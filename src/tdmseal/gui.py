@@ -36,16 +36,15 @@ from PySide6.QtWidgets import (
 
 from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
-from tdmseal.discovery import iter_pdfs
+from tdmseal.discovery import iter_documents
+from tdmseal.documents import inspect_document, seal_document
 from tdmseal.errors import TDMSealError
 from tdmseal.iscc.content import compute_content_iscc, content_extra_available
 from tdmseal.models import PublisherInfo, TDMPolicy
-from tdmseal.pdf.inspector import inspect_pdf
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
-from tdmseal.seal import seal_pdf
 
-COLUMNS = ["Archivo", "PDF/A", "Firmado", "Cifrado", "TDM actual", "Estado", "ISCC"]
+COLUMNS = ["Archivo", "Formato", "Firmado", "Cifrado / DRM", "TDM actual", "Estado", "ISCC"]
 ISCC_COL = 6
 
 _OK_COLOR = QColor("#1e7e34")
@@ -73,7 +72,7 @@ class _AuditWorker(QObject):
     def run(self) -> None:
         for i, path in enumerate(self._paths):
             try:
-                info = inspect_pdf(path)
+                info = inspect_document(path)
                 self.file_done.emit(i, info)
             except TDMSealError as exc:
                 self.file_done.emit(i, exc)
@@ -99,7 +98,7 @@ class _SealWorker(QObject):
     def run(self) -> None:
         ok = skipped = failed = 0
         for i, path in enumerate(self._paths):
-            result = seal_pdf(path, self._config)
+            result = seal_document(path, self._config)
             if result.output_path is not None:
                 report_path = result.output_path.with_suffix(
                     result.output_path.suffix + ".report.json"
@@ -118,7 +117,7 @@ class _SealWorker(QObject):
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("TDM Seal — declaraciones TDMRep para PDF editoriales")
+        self.setWindowTitle("TDM Seal — declaraciones TDMRep para PDF y EPUB editoriales")
         self.resize(880, 600)
 
         self._rows: list[_RowState] = []
@@ -186,12 +185,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(policy_group)
 
         select_row = QHBoxLayout()
-        self.btn_select_file = QPushButton("Seleccionar PDF…")
+        self.btn_select_file = QPushButton("Seleccionar PDF o EPUB…")
         self.btn_select_folder = QPushButton("Seleccionar carpeta…")
         self.chk_recursive = QCheckBox("Incluir subcarpetas")
         self.chk_iscc = QCheckBox("Calcular ISCC (huella del contenido)")
         self.chk_iscc.setToolTip(
-            "Calcula el ISCC (ISO 24138) de cada PDF y lo guarda en sus metadatos al "
+            "Calcula el ISCC (ISO 24138) de cada documento y lo guarda en sus metadatos al "
             "sellar. El código de contenido se calcula sobre el texto y no cambia al "
             "sellar. Tarda un poco más en libros largos."
         )
@@ -228,7 +227,7 @@ class MainWindow(QMainWindow):
         action_row.addWidget(self.btn_open_folder)
         layout.addLayout(action_row)
 
-        self.status_label = QLabel("Selecciona uno o varios PDF para comenzar.")
+        self.status_label = QLabel("Selecciona uno o varios PDF o EPUB para comenzar.")
         layout.addWidget(self.status_label)
 
         self.btn_select_file.clicked.connect(self._select_file)
@@ -296,9 +295,9 @@ class MainWindow(QMainWindow):
     def _select_file(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(
             self,
-            "Seleccionar PDF",
+            "Seleccionar PDF o EPUB",
             "",
-            "PDF (*.pdf)",
+            "PDF y EPUB (*.pdf *.epub);;PDF (*.pdf);;EPUB (*.epub)",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
         if paths:
@@ -311,7 +310,7 @@ class MainWindow(QMainWindow):
             options=QFileDialog.Option.DontUseNativeDialog,
         )
         if folder:
-            pdfs = iter_pdfs(Path(folder), recursive=self.chk_recursive.isChecked())
+            pdfs = iter_documents(Path(folder), recursive=self.chk_recursive.isChecked())
             self._load_paths(pdfs)
 
     def _load_paths(self, paths: list[Path]) -> None:
@@ -363,16 +362,21 @@ class MainWindow(QMainWindow):
         self._rows[row].signed = info.signed
         self._rows[row].encrypted = info.encrypted
 
-        pdfa = "no"
-        if info.pdfa_part is not None:
-            pdfa = f"A-{info.pdfa_part}{(info.pdfa_conformance or '').lower()}"
-        self._set_row_text(row, 1, pdfa)
+        if info.kind == "epub":
+            fmt = f"EPUB {info.epub_version}"
+        elif info.pdfa_part is not None:
+            fmt = f"PDF/A-{info.pdfa_part}{(info.pdfa_conformance or '').lower()}"
+        else:
+            fmt = "PDF"
+        self._set_row_text(row, 1, fmt)
         self._set_row_text(row, 2, "sí" if info.signed else "no")
         self._set_row_text(row, 3, "sí" if info.encrypted else "no")
         self._set_row_text(row, 4, str(info.tdm.reservation) if info.tdm.present else "—")
 
         if info.signed:
             self._set_row_text(row, 5, "firmado — no se modificará", color=_WARN_COLOR)
+        elif info.kind == "epub" and info.encrypted:
+            self._set_row_text(row, 5, "DRM — no se modificará", color=_WARN_COLOR)
         elif info.encrypted:
             self._set_row_text(row, 5, "cifrado — no se modificará", color=_WARN_COLOR)
         else:

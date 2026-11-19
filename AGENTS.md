@@ -60,7 +60,13 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v0.5.0, 19-nov-2026)
+## Estado (v0.6.0, 19-nov-2026)
+
+EPUB 2/3 en `epub/` (OPF, contenedor, DRM, EPUBCheck opcional); CLI y GUI
+pasan por `documents.py` (`inspect_document`, `seal_document`). Al tocar un
+EPUB solo cambia el OPF; `compare_container` lo exige. No hay Java en este
+equipo: EPUBCheck y veraPDF solo se prueban con dobles.
+
 
 Hecho y probado: PDF/A-1/2/3 (`xmp/pdfa_extension.py`), veraPDF opcional
 (`SKIPPED` si no está), Policy Builder (`policy/`, `tdmseal policy build`),

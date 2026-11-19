@@ -51,9 +51,17 @@ NO_EXTRA_WARNING = (
     "'tdm-seal[iscc]', que añade pypdfium2). Solo se calcularon Meta-Code, "
     "Data-Code e Instance-Code."
 )
+NO_EPUB_EXTRA_WARNING = (
+    "ISCC de contenido del EPUB no calculado: falta el extra opcional "
+    "'tdm-seal[iscc-epub]' (iscc-tika, ~110 MB, el mismo extractor que usa "
+    "iscc-sdk). Solo se calcularon Meta-Code, Data-Code e Instance-Code."
+)
+# Mismo tope que iscc-sdk (text.py), para que todos deriven el mismo ISCC.
+TEXT_EXTRACT_MAX_LENGTH = 10_000_000
 NO_TEXT_WARNING = (
-    "ISCC de contenido no calculado: el PDF no tiene capa de texto "
-    "(¿escaneo sin OCR?). Solo se calcularon Meta-Code, Data-Code e Instance-Code."
+    "ISCC de contenido no calculado: el documento no tiene capa de texto "
+    "extraíble (¿PDF escaneado sin OCR?). Solo se calcularon Meta-Code, "
+    "Data-Code e Instance-Code."
 )
 
 _TAG_RE = re.compile(r"<[^>]*>")
@@ -194,25 +202,64 @@ def _normalized_name(name: str | None) -> str:
     return ic.text_trim(value, ic.core_opts.meta_trim_name)
 
 
+def epub_extra_available() -> bool:
+    """True si el extra opcional `[iscc-epub]` (iscc-tika) está instalado."""
+    try:
+        import iscc_tika  # noqa: F401
+    except ImportError:
+        return False
+    return True
+
+
+def extract_epub_text(path: Path) -> str:
+    """Extrae el texto como iscc-sdk (`text_extract`, Tika). Requiere iscc-tika."""
+    from iscc_tika import Extractor
+
+    extractor = Extractor().set_extract_string_max_length(TEXT_EXTRACT_MAX_LENGTH)
+    text, _meta = extractor.extract_file_to_string(Path(path).as_posix())
+    return text
+
+
+def read_epub_meta(path: Path) -> tuple[str | None, str | None]:
+    """(título, descripción) del OPF, primer dc:title / dc:description."""
+    import zipfile
+
+    from tdmseal.epub.container import find_opf_path
+    from tdmseal.epub.opf import parse_opf, read_dc
+
+    with zipfile.ZipFile(path) as zf:
+        root = parse_opf(zf.read(find_opf_path(zf)))
+    title = read_dc(root, "title")
+    description = read_dc(root, "description")
+    return (
+        _sanitize(title) if title else None,
+        _sanitize(description) if description else None,
+    )
+
+
 def compute_content_iscc(path: Path) -> ContentIscc:
-    """Calcula el ISCC-CODE completo de un PDF (sin red, sin escribir nada)."""
+    """Calcula el ISCC-CODE completo de un PDF o EPUB (sin red, sin escribir nada)."""
     path = Path(path)
     warnings: list[str] = []
+    is_epub = path.suffix.lower() == ".epub"
 
-    name, description = read_pdf_meta(path)
+    name, description = read_epub_meta(path) if is_epub else read_pdf_meta(path)
     if not _normalized_name(name):
         name = name_from_filename(path)
     meta = ic.gen_meta_code_v0(name=name, description=description, bits=64)
 
     text_code: str | None = None
-    if content_extra_available():
-        text = ic.text_clean(extract_pdf_text(path))
+    if is_epub and not epub_extra_available():
+        warnings.append(NO_EPUB_EXTRA_WARNING)
+    elif not is_epub and not content_extra_available():
+        warnings.append(NO_EXTRA_WARNING)
+    else:
+        raw = extract_epub_text(path) if is_epub else extract_pdf_text(path)
+        text = ic.text_clean(raw)
         if text.strip():
             text_code = ic.gen_text_code_v0(text, bits=64)["iscc"]
         else:
             warnings.append(NO_TEXT_WARNING)
-    else:
-        warnings.append(NO_EXTRA_WARNING)
 
     data = compute_iscc(path)
     units = [meta["iscc"]]

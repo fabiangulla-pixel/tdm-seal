@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from tdmseal import __version__
-from tdmseal.models import PDFInfo, PublisherInfo, SealResult
+from tdmseal.models import EPUBInfo, PDFInfo, PublisherInfo, SealResult
 
 
 def _publisher_to_dict(publisher: PublisherInfo | None) -> dict | None:
@@ -21,15 +21,31 @@ def _publisher_to_dict(publisher: PublisherInfo | None) -> dict | None:
     }
 
 
-def _pdf_info_to_dict(info: PDFInfo | None) -> dict | None:
+def _pdf_info_to_dict(info: PDFInfo | EPUBInfo | None) -> dict | None:
     if info is None:
         return None
+    if isinstance(info, EPUBInfo):
+        return {
+            "file": str(info.path),
+            "format": "epub",
+            "sha256": info.sha256,
+            "iscc": info.iscc,
+            "epub_version": info.epub_version,
+            "opf_path": info.opf_path,
+            "drm": info.drm,
+            "obfuscated_fonts": info.obfuscated_fonts,
+            "mimetype_ok": info.mimetype_ok,
+            "tdm_reservation": info.tdm.reservation,
+            "tdm_policy": info.tdm.policy_url,
+            "declared_iscc": info.declared_iscc.to_dict() if info.declared_iscc else None,
+        }
     pdfa = None
     if info.pdfa_part is not None:
         conformance = info.pdfa_conformance or ""
         pdfa = f"PDF/A-{info.pdfa_part}{conformance.lower()}"
     return {
         "file": str(info.path),
+        "format": "pdf",
         "sha256": info.sha256,
         "iscc": info.iscc,
         "pdf_version": info.pdf_version,

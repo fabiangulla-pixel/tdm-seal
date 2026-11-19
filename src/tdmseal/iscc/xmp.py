@@ -75,6 +75,31 @@ def read_declared_iscc(rdf_root: etree._Element) -> DeclaredIscc | None:
     )
 
 
+def resolve_provenance(
+    existing: DeclaredIscc | None,
+    content_code: str | None,
+    source_iscc: str,
+    source_datahash: str,
+) -> tuple[str | None, str, str]:
+    """Decide qué valores escribir (regla común a PDF y EPUB).
+
+    Re-sellado del mismo contenido (Text-Code igual, o no calculable ahora):
+    se conserva la procedencia original. Si no hay `content_code`, no se borra
+    uno ya declarado: no tener con qué calcularlo no prueba que haya cambiado.
+    """
+    if (
+        existing is not None
+        and existing.source_iscc
+        and (content_code is None or existing.content_code == content_code)
+    ):
+        return (
+            content_code or existing.content_code,
+            existing.source_iscc,
+            existing.source_datahash or source_datahash,
+        )
+    return content_code, source_iscc, source_datahash
+
+
 def write_declared_iscc(
     rdf_root: etree._Element,
     *,
@@ -88,16 +113,9 @@ def write_declared_iscc(
     declarado: no tener con qué calcularlo no prueba que haya cambiado.
     """
     existing = read_declared_iscc(rdf_root)
-    if (
-        existing is not None
-        and existing.source_iscc
-        and (content_code is None or existing.content_code == content_code)
-    ):
-        # Re-sellado del mismo contenido: conservar la procedencia original.
-        source_iscc = existing.source_iscc
-        source_datahash = existing.source_datahash or source_datahash
-        if content_code is None:
-            content_code = existing.content_code
+    content_code, source_iscc, source_datahash = resolve_provenance(
+        existing, content_code, source_iscc, source_datahash
+    )
 
     target = None
     for desc in _doc_descriptions(rdf_root):

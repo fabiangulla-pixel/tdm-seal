@@ -75,6 +75,38 @@ class PDFInfo:
     def is_pdfa(self) -> bool:
         return self.pdfa_part is not None
 
+    kind = "pdf"
+
+
+@dataclass
+class EPUBInfo:
+    """Estado de un EPUB observado por el inspector, antes o después de sellar.
+
+    Expone `encrypted`, `signed`, `pdfa_part` e `is_pdfa` con el mismo
+    significado que `PDFInfo` para que la CLI y la GUI traten ambos igual.
+    """
+
+    path: Path
+    epub_version: str
+    opf_path: str
+    drm: str | None
+    obfuscated_fonts: int
+    mimetype_ok: bool
+    tdm: TDMRepDeclaration
+    sha256: str
+    iscc: str | None = None
+    declared_iscc: object | None = None
+
+    kind = "epub"
+    signed = False
+    pdfa_part = None
+    pdfa_conformance = None
+    is_pdfa = False
+
+    @property
+    def encrypted(self) -> bool:
+        return self.drm is not None
+
 
 @dataclass
 class SealResult:
@@ -85,8 +117,8 @@ class SealResult:
     status: Literal["success", "skipped", "failed"]
     operation: Literal["create", "update", "none"] | None = None
     reason_code: str | None = None
-    before: PDFInfo | None = None
-    after: PDFInfo | None = None
+    before: PDFInfo | EPUBInfo | None = None
+    after: PDFInfo | EPUBInfo | None = None
     validations: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)

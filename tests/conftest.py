@@ -170,6 +170,128 @@ def make_incremental_pdf(tmp_path: Path):
     return _make
 
 
+CONTAINER_XML = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
+    "  <rootfiles>\n"
+    '    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>\n'
+    "  </rootfiles>\n"
+    "</container>\n"
+)
+
+
+def _chapter_xhtml(title: str, text: str) -> str:
+    paragraphs = "\n".join(f"    <p>{line}</p>" for line in text.splitlines())
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml">\n'
+        f"  <head><title>{title}</title></head>\n"
+        f"  <body>\n    <h1>{title}</h1>\n{paragraphs}\n  </body>\n</html>\n"
+    )
+
+
+def build_epub(
+    path: Path,
+    *,
+    version: int = 3,
+    title: str = "Derechos y minería",
+    chapters: list[str] | None = None,
+    extra_meta: str = "",
+    package_prefix: str | None = None,
+    extra_files: dict[str, bytes] | None = None,
+    mimetype_first: bool = True,
+) -> Path:
+    """EPUB 2 o 3 mínimo pero válido, generado por programa (sin binarios versionados)."""
+    import zipfile
+
+    chapters = chapters or SAMPLE_TEXT
+    manifest = [
+        f'    <item id="c{i}" href="c{i}.xhtml" media-type="application/xhtml+xml"/>'
+        for i in range(len(chapters))
+    ]
+    spine = [f'    <itemref idref="c{i}"/>' for i in range(len(chapters))]
+    if version == 3:
+        manifest.append(
+            '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" '
+            'properties="nav"/>'
+        )
+        modified = '    <meta property="dcterms:modified">2026-11-19T00:00:00Z</meta>\n'
+        spine_attr = ""
+    else:
+        manifest.append('    <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>')
+        modified = ""
+        spine_attr = ' toc="ncx"'
+    prefix_attr = f' prefix="{package_prefix}"' if package_prefix else ""
+    opf = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<package xmlns="http://www.idpf.org/2007/opf" version="{version}.0" '
+        f'unique-identifier="uid"{prefix_attr}>\n'
+        '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n'
+        '    <dc:identifier id="uid">urn:isbn:9789580000000</dc:identifier>\n'
+        f"    <dc:title>{title}</dc:title>\n"
+        "    <dc:language>es</dc:language>\n"
+        f"{modified}{extra_meta}"
+        "  </metadata>\n"
+        "  <manifest>\n" + "\n".join(manifest) + "\n  </manifest>\n"
+        f"  <spine{spine_attr}>\n" + "\n".join(spine) + "\n  </spine>\n"
+        "</package>\n"
+    )
+    nav = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">\n'
+        "<head><title>Índice</title></head><body>\n"
+        '<nav epub:type="toc"><ol>'
+        + "".join(f'<li><a href="c{i}.xhtml">Cap. {i}</a></li>' for i in range(len(chapters)))
+        + "</ol></nav>\n</body></html>\n"
+    )
+    ncx = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n'
+        '<head><meta name="dtb:uid" content="urn:isbn:9789580000000"/></head>\n'
+        f"<docTitle><text>{title}</text></docTitle>\n<navMap>"
+        + "".join(
+            f'<navPoint id="n{i}" playOrder="{i + 1}"><navLabel><text>Cap. {i}</text>'
+            f'</navLabel><content src="c{i}.xhtml"/></navPoint>'
+            for i in range(len(chapters))
+        )
+        + "</navMap>\n</ncx>\n"
+    )
+
+    entries: list[tuple[str, bytes, int]] = [
+        ("META-INF/container.xml", CONTAINER_XML.encode(), zipfile.ZIP_DEFLATED),
+        ("OEBPS/content.opf", opf.encode(), zipfile.ZIP_DEFLATED),
+    ]
+    for i, text in enumerate(chapters):
+        entries.append(
+            (f"OEBPS/c{i}.xhtml", _chapter_xhtml(f"Cap. {i}", text).encode(), zipfile.ZIP_DEFLATED)
+        )
+    if version == 3:
+        entries.append(("OEBPS/nav.xhtml", nav.encode(), zipfile.ZIP_DEFLATED))
+    else:
+        entries.append(("OEBPS/toc.ncx", ncx.encode(), zipfile.ZIP_DEFLATED))
+    for name, data in (extra_files or {}).items():
+        entries.append((name, data, zipfile.ZIP_DEFLATED))
+
+    mimetype = ("mimetype", b"application/epub+zip", zipfile.ZIP_STORED)
+    ordered = [mimetype, *entries] if mimetype_first else [*entries[:1], mimetype, *entries[1:]]
+    with zipfile.ZipFile(path, "w") as zf:
+        for name, data, compression in ordered:
+            info = zipfile.ZipInfo(name, date_time=(2026, 11, 19, 12, 0, 0))
+            info.compress_type = compression
+            zf.writestr(info, data)
+    return path
+
+
+@pytest.fixture
+def make_epub(tmp_path: Path):
+    """Factory: EPUB 2/3 generado por programa (ver build_epub)."""
+
+    def _make(name: str = "libro.epub", **kwargs) -> Path:
+        return build_epub(tmp_path / name, **kwargs)
+
+    return _make
+
+
 def _pdfa_xmp(part: int, conformance: str | None) -> bytes:
     conformance_attr = f' pdfaid:conformance="{conformance}"' if conformance else ""
     return (

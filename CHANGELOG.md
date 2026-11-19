@@ -1,5 +1,38 @@
 # Changelog
 
+## [0.6.0] - 2026-11-19
+
+### Añadido
+
+- **EPUB 2 y 3** (`tdmseal/epub/`): `tdm:reservation` y `tdm:policy` en el
+  paquete OPF según TDMRep (sec. 6.4-6.5): en EPUB 3,
+  `<meta property="tdm:…">` con `prefix="tdm: http://www.w3.org/ns/tdmrep#"`
+  en `<package>` (conservando los prefijos que ya hubiera); en EPUB 2,
+  `<meta name="tdm:…" content="…"/>`. Si un EPUB 3 trae también la forma
+  EPUB 2, se actualizan las dos para no dejar valores contradictorios.
+- Mismos invariantes que en PDF: archivo nuevo `_TDM.epub`, idempotencia,
+  relectura y verificación. El contenedor se reescribe cambiando **solo el
+  OPF**: mismas entradas, orden, fechas y contenido (CRC) en todo lo demás,
+  `mimetype` primero y sin comprimir (validación `container_unchanged`). Si
+  el original no cumplía la regla del `mimetype`, se repara y se avisa.
+- EPUB con DRM o recursos cifrados (`META-INF/encryption.xml` con algo
+  distinto de la ofuscación de fuentes, Adobe ADEPT `rights.xml`, Readium
+  LCP `license.lcpl`) se omiten con el código nuevo **`TDM022`**. La
+  ofuscación de fuentes no es DRM: se sella y se avisa.
+- **EPUBCheck opcional** (`validation/epubcheck_validator.py`): con
+  `TDMSEAL_EPUBCHECK_JAR` + Java, o `epubcheck` en el PATH. Valida original y
+  sellado y solo falla si el sellado añade errores nuevos (`TDM034`); si no
+  está instalado, `SKIPPED` con instrucciones.
+- **ISCC de EPUB**, idéntico al de iscc-sdk (comprobado con fixtures y con 3
+  EPUB reales). El Text-Code requiere el extra aparte `tdm-seal[iscc-epub]`
+  (iscc-tika, el mismo extractor del SDK, ~110 MB, fuera del `.exe`); sin
+  él se calculan Meta, Data e Instance y se avisa.
+- `discovery.iter_documents` (PDF + EPUB, sin distinguir mayúsculas) y
+  `documents.py` (`inspect_document`, `seal_document`). CLI y GUI aceptan
+  ambos formatos; columna "Formato" en la GUI.
+- Códigos nuevos: `TDM005` (EPUB ilegible), `TDM022`, `TDM033` (el
+  contenedor cambió en algo más que el OPF), `TDM034`.
+
 ## [0.5.0] - 2026-11-19
 
 ### Añadido

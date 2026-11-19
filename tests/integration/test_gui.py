@@ -104,6 +104,23 @@ def test_audit_fills_iscc_column_and_seal_writes_iscc(qtbot, make_text_pdf):
     assert declared.content_code == expected.text_code
 
 
+def test_gui_audits_and_seals_epub(qtbot, make_epub):
+    epub_path = make_epub("gui_libro.epub")
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window.chk_iscc.setChecked(False)
+
+    window._load_paths([epub_path])
+    qtbot.waitUntil(lambda: window.table.item(0, 5).text() == "listo", timeout=5000)
+    assert window.table.item(0, 1).text() == "EPUB 3.0"
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
+
+    window._run_seal()
+    qtbot.waitUntil(lambda: window.btn_open_folder.isEnabled(), timeout=10000)
+
+    assert epub_path.with_name("gui_libro_TDM.epub").exists()
+
+
 def test_iscc_unchecked_leaves_column_empty(qtbot, make_text_pdf):
     window = gui_module.MainWindow()
     qtbot.addWidget(window)

@@ -10,17 +10,16 @@ import click
 
 from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
-from tdmseal.discovery import iter_pdfs
+from tdmseal.discovery import iter_documents
+from tdmseal.documents import inspect_document, seal_document
 from tdmseal.iscc.content import (
     NO_EXTRA_WARNING,
     compute_content_iscc,
     content_extra_available,
 )
 from tdmseal.models import PublisherInfo, TDMPolicy
-from tdmseal.pdf.inspector import inspect_pdf
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
-from tdmseal.seal import seal_pdf
 
 
 def _format_pdfa(info) -> str:
@@ -32,7 +31,7 @@ def _format_pdfa(info) -> str:
 
 @click.group()
 def main() -> None:
-    """TDM Seal — declaraciones TDMRep para PDF editoriales."""
+    """TDM Seal — declaraciones TDMRep para PDF y EPUB editoriales."""
 
 
 @main.command()
@@ -67,7 +66,7 @@ def seal(
     publisher_email: str | None,
     with_iscc: bool,
 ) -> None:
-    """Sella un PDF o una carpeta de PDF con una declaración TDMRep.
+    """Sella un PDF/EPUB o una carpeta de ellos con una declaración TDMRep.
 
     Los valores no indicados por línea de comandos se toman de los valores
     por defecto guardados con `tdmseal config set` (editorial, reserva,
@@ -92,16 +91,16 @@ def seal(
         compute_iscc=with_iscc,
     )
 
-    pdfs = iter_pdfs(target, recursive)
+    pdfs = iter_documents(target, recursive)
     if not pdfs:
-        click.echo("No se encontraron PDF para procesar.")
+        click.echo("No se encontraron PDF ni EPUB para procesar.")
         return
     if with_iscc and not content_extra_available():
         click.echo(f"Aviso: {NO_EXTRA_WARNING}")
 
     ok = skipped = failed = 0
     for pdf_path in pdfs:
-        result = seal_pdf(pdf_path, config)
+        result = seal_document(pdf_path, config)
         if result.status == "success":
             ok += 1
             click.echo(f"[OK] {pdf_path} -> {result.output_path}")
@@ -129,17 +128,21 @@ def seal(
 @main.command()
 @click.argument("target", type=click.Path(exists=True, path_type=Path))
 def inspect(target: Path) -> None:
-    """Audita un PDF sin modificarlo."""
-    info = inspect_pdf(target)
-    pdfa = _format_pdfa(info)
+    """Audita un PDF o EPUB sin modificarlo."""
+    info = inspect_document(target)
     click.echo(f"Archivo: {info.path}")
     click.echo(f"ISCC: {info.iscc}")
-    click.echo(f"PDF version: {info.pdf_version}")
-    click.echo(f"PDF/A: {pdfa}")
+    if info.kind == "epub":
+        click.echo(f"EPUB version: {info.epub_version}")
+        click.echo(f"Paquete OPF: {info.opf_path}")
+        click.echo(f"DRM / cifrado: {info.drm or 'no'}")
+    else:
+        click.echo(f"PDF version: {info.pdf_version}")
+        click.echo(f"PDF/A: {_format_pdfa(info)}")
+        click.echo(f"Firma digital: {'sí' if info.signed else 'no'}")
+        click.echo(f"Cifrado: {'sí' if info.encrypted else 'no'}")
     click.echo(f"TDM reservation: {info.tdm.reservation}")
     click.echo(f"TDM policy: {info.tdm.policy_url}")
-    click.echo(f"Firma digital: {'sí' if info.signed else 'no'}")
-    click.echo(f"Cifrado: {'sí' if info.encrypted else 'no'}")
     if info.declared_iscc is not None:
         click.echo(f"ISCC de contenido declarado: {info.declared_iscc.content_code}")
         click.echo(f"ISCC del original declarado: {info.declared_iscc.source_iscc}")
@@ -149,13 +152,14 @@ def inspect(target: Path) -> None:
 @click.argument("target", type=click.Path(exists=True, path_type=Path))
 @click.option("--format", "fmt", type=click.Choice(["json"]), default="json")
 def show(target: Path, fmt: str) -> None:
-    """Extrae la declaración TDMRep de un PDF en formato JSON."""
-    info = inspect_pdf(target)
+    """Extrae la declaración TDMRep de un PDF o EPUB en formato JSON."""
+    info = inspect_document(target)
+    source = "document-level-xmp" if info.kind == "pdf" else "opf-package-metadata"
     payload = {
         "iscc": info.iscc,
         "tdm_reservation": info.tdm.reservation,
         "tdm_policy": info.tdm.policy_url,
-        "source": "document-level-xmp" if info.tdm.present else None,
+        "source": source if info.tdm.present else None,
         "declared_iscc": info.declared_iscc.to_dict() if info.declared_iscc else None,
     }
     click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -166,15 +170,15 @@ def show(target: Path, fmt: str) -> None:
 @click.option("--recursive", is_flag=True, help="Procesar subcarpetas si TARGET es una carpeta.")
 @click.option("--json", "as_json", is_flag=True, help="Salida en JSON.")
 def iscc_command(target: Path, recursive: bool, as_json: bool) -> None:
-    """Calcula el ISCC completo de uno o varios PDF, sin modificarlos.
+    """Calcula el ISCC completo de uno o varios PDF/EPUB, sin modificarlos.
 
     ISCC-CODE = Meta-Code + Text-Code + Data-Code + Instance-Code, compatible
     con iscc-sdk. El Text-Code se calcula sobre el texto y no cambia al
-    sellar; requiere el extra opcional `tdm-seal[iscc]`.
+    sellar; requiere el extra `tdm-seal[iscc]` (PDF) o `[iscc-epub]` (EPUB).
     """
-    pdfs = iter_pdfs(target, recursive)
+    pdfs = iter_documents(target, recursive)
     if not pdfs:
-        click.echo("No se encontraron PDF para procesar.")
+        click.echo("No se encontraron PDF ni EPUB para procesar.")
         return
     results: dict[str, dict] = {}
     failed = 0
@@ -207,15 +211,15 @@ def iscc_command(target: Path, recursive: bool, as_json: bool) -> None:
 @click.argument("target", type=click.Path(exists=True, path_type=Path))
 @click.option("--recursive", is_flag=True)
 def audit(target: Path, recursive: bool) -> None:
-    """Audita un catálogo de PDF y resume su estado TDM (sección 36)."""
-    pdfs = iter_pdfs(target, recursive)
+    """Audita un catálogo de PDF y EPUB y resume su estado TDM (sección 36)."""
+    pdfs = iter_documents(target, recursive)
     for pdf_path in pdfs:
         try:
-            info = inspect_pdf(pdf_path)
+            info = inspect_document(pdf_path)
         except Exception as exc:  # noqa: BLE001 — se reporta y se sigue con el resto
             click.echo(f"{pdf_path.name}\tERROR\t{exc}")
             continue
-        pdfa = _format_pdfa(info)
+        pdfa = f"EPUB {info.epub_version}" if info.kind == "epub" else _format_pdfa(info)
         estado = "OK" if info.tdm.reservation is not None else "FALTA TDM"
         policy = info.tdm.policy_url or "-"
         click.echo(

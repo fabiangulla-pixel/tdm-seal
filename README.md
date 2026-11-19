@@ -13,19 +13,25 @@ legible por máquinas, de que los derechos de minería de textos y datos están
 reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
 padre) para la especificación funcional y técnica completa.
 
-## Estado actual (v0.5.0 — núcleo + GUI + PDF/A + políticas + ISCC de contenido)
+## Estado actual (v0.6.0 — PDF y EPUB + PDF/A + políticas + ISCC de contenido)
 
 Implementado y con pruebas automatizadas:
 
+- **EPUB 2 y 3**: `tdm:reservation` / `tdm:policy` en el paquete OPF según
+  TDMRep, cambiando solo el OPF (el resto del contenedor queda idéntico,
+  `mimetype` primero y sin comprimir). EPUB con DRM → se omite (`TDM022`).
+  EPUBCheck opcional (`TDMSEAL_EPUBCHECK_JAR`): solo falla si el sellado
+  añade errores que el original no tenía;
 - **ISCC de contenido** (ISO 24138), con `--iscc` o la casilla de la GUI:
   ISCC-CODE completo (Meta + Text + Data + Instance), idéntico al que
   calcula iscc-sdk. El **Text-Code** se calcula sobre el texto del libro,
   no sobre los bytes: **no cambia al sellar**, así que la reserva queda
   ligada a la obra y no solo al archivo. Se escribe en el XMP
   (`tdmseal:isccContentCode`, `tdmseal:isccSource`; ver
-  `docs/xmp-namespace-iscc.md`) y en el reporte. Requiere el extra
-  `tdm-seal[iscc]`; sin él se calcula lo demás y se avisa. No sustituye al
-  ISBN, al DOI ni a ONIX: los complementa;
+  `docs/xmp-namespace-iscc.md`; en EPUB, en el OPF) y en el reporte.
+  Requiere el extra `tdm-seal[iscc]` para PDF y `tdm-seal[iscc-epub]`
+  (~110 MB) para EPUB; sin ellos se calcula lo demás y se avisa. No
+  sustituye al ISBN, al DOI ni a ONIX: los complementa;
 - **PDF/A-1/2/3**: al sellar, se declara el namespace TDMRep en el
   esquema de extensión XMP (`pdfaExtension:schemas`), conservando los
   esquemas que ya traía el archivo; PDF/A-4 no lo necesita y no se toca.
@@ -71,7 +77,7 @@ Implementado y con pruebas automatizadas:
 - los PDF de prueba se generan con pikepdf; faltan fixtures reales de
   PDF/A, PDF/UA, firmados y con formularios.
 
-**Pendiente** (hoja de ruta v0.6–v1.0): EPUB, señales
+**Pendiente** (hoja de ruta v0.7–v1.0): señales
 de sitio (`tdmrep.json` con `tdmseal site`, cabeceras HTTP), política ODRL
 completa, preferencias IETF AIPREF, aviso visible opcional, manifiesto de
 catálogo y empaquetado 1.0.
@@ -121,8 +127,11 @@ tdmseal seal libro.pdf
 # Con política pública
 tdmseal seal libro.pdf --reservation 1 --policy "https://editorial.example.edu/tdm/policy.jsonld"
 
-# Carpeta completa
+# Carpeta completa (PDF y EPUB)
 tdmseal seal ./pdf-finales --recursive
+
+# Un EPUB (2 o 3)
+tdmseal seal libro.epub --iscc
 
 # Sellar y además calcular el ISCC y guardarlo en el XMP
 tdmseal seal libro.pdf --iscc
