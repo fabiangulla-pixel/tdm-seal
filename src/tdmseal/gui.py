@@ -38,13 +38,15 @@ from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
 from tdmseal.discovery import iter_pdfs
 from tdmseal.errors import TDMSealError
+from tdmseal.iscc.content import compute_content_iscc, content_extra_available
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.pdf.inspector import inspect_pdf
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
 from tdmseal.seal import seal_pdf
 
-COLUMNS = ["Archivo", "PDF/A", "Firmado", "Cifrado", "TDM actual", "Estado"]
+COLUMNS = ["Archivo", "PDF/A", "Firmado", "Cifrado", "TDM actual", "Estado", "ISCC"]
+ISCC_COL = 6
 
 _OK_COLOR = QColor("#1e7e34")
 _WARN_COLOR = QColor("#b8860b")
@@ -60,11 +62,13 @@ class _RowState:
 
 class _AuditWorker(QObject):
     file_done = Signal(int, object)  # índice de fila, PDFInfo | Exception
+    iscc_done = Signal(int, object)  # índice de fila, ContentIscc | Exception
     finished = Signal()
 
-    def __init__(self, paths: list[Path]) -> None:
+    def __init__(self, paths: list[Path], with_iscc: bool = False) -> None:
         super().__init__()
         self._paths = paths
+        self._with_iscc = with_iscc
 
     def run(self) -> None:
         for i, path in enumerate(self._paths):
@@ -73,6 +77,12 @@ class _AuditWorker(QObject):
                 self.file_done.emit(i, info)
             except TDMSealError as exc:
                 self.file_done.emit(i, exc)
+                continue
+            if self._with_iscc and not (info.encrypted or info.signed):
+                try:
+                    self.iscc_done.emit(i, compute_content_iscc(path))
+                except Exception as exc:  # noqa: BLE001 — se muestra en la fila
+                    self.iscc_done.emit(i, exc)
         self.finished.emit()
 
 
@@ -179,15 +189,29 @@ class MainWindow(QMainWindow):
         self.btn_select_file = QPushButton("Seleccionar PDF…")
         self.btn_select_folder = QPushButton("Seleccionar carpeta…")
         self.chk_recursive = QCheckBox("Incluir subcarpetas")
+        self.chk_iscc = QCheckBox("Calcular ISCC (huella del contenido)")
+        self.chk_iscc.setToolTip(
+            "Calcula el ISCC (ISO 24138) de cada PDF y lo guarda en sus metadatos al "
+            "sellar. El código de contenido se calcula sobre el texto y no cambia al "
+            "sellar. Tarda un poco más en libros largos."
+        )
+        self.chk_iscc.setChecked(True)
+        if not content_extra_available():
+            self.chk_iscc.setToolTip(
+                self.chk_iscc.toolTip() + "\n\nFalta el extra 'tdm-seal[iscc]': solo se "
+                "calcularán los códigos de metadatos y de bytes, no el de contenido."
+            )
         select_row.addWidget(self.btn_select_file)
         select_row.addWidget(self.btn_select_folder)
         select_row.addWidget(self.chk_recursive)
+        select_row.addWidget(self.chk_iscc)
         select_row.addStretch(1)
         layout.addLayout(select_row)
 
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.table.horizontalHeader().setSectionResizeMode(ISCC_COL, QHeaderView.ResizeToContents)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         layout.addWidget(self.table, stretch=1)
@@ -308,13 +332,16 @@ class MainWindow(QMainWindow):
         if not self._rows:
             return
         self._set_buttons_enabled(False)
-        self.status_label.setText("Auditando…")
+        self.status_label.setText(
+            "Auditando y calculando ISCC…" if self.chk_iscc.isChecked() else "Auditando…"
+        )
 
-        worker = _AuditWorker([r.path for r in self._rows])
+        worker = _AuditWorker([r.path for r in self._rows], with_iscc=self.chk_iscc.isChecked())
         thread = QThread(self)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.file_done.connect(self._on_audit_file_done)
+        worker.iscc_done.connect(self._on_iscc_done)
         worker.finished.connect(lambda: self._on_worker_finished("Auditoría completada."))
         worker.finished.connect(thread.quit)
         thread.finished.connect(thread.deleteLater)
@@ -351,6 +378,24 @@ class MainWindow(QMainWindow):
         else:
             self._set_row_text(row, 5, "listo", color=_OK_COLOR)
 
+    def _on_iscc_done(self, row: int, result: object) -> None:
+        if isinstance(result, Exception):
+            self._set_row_text(row, ISCC_COL, f"error: {result}", color=_ERROR_COLOR)
+            return
+        item = QTableWidgetItem(result.iscc)
+        tooltip = [
+            f"Meta-Code: {result.meta_code} ({result.name})",
+            f"Text-Code (contenido): {result.text_code or '—'}",
+            f"Data-Code: {result.data_code}",
+            f"Instance-Code: {result.instance_code}",
+            *result.warnings,
+        ]
+        item.setToolTip("\n".join(tooltip))
+        if not result.content_computed:
+            item.setForeground(_WARN_COLOR)
+        item.setFlags(item.flags() & ~Qt.ItemIsEditable)
+        self.table.setItem(row, ISCC_COL, item)
+
     # ---- sellado ----------------------------------------------------------
 
     def _run_seal(self) -> None:
@@ -366,7 +411,7 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Política TDM inválida", str(exc))
             return
 
-        config = SealConfig(policy=policy)
+        config = SealConfig(policy=policy, compute_iscc=self.chk_iscc.isChecked())
         publisher = self._current_publisher()
         self._set_buttons_enabled(False)
         self.status_label.setText("Aplicando TDM…")

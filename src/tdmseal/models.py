@@ -68,6 +68,8 @@ class PDFInfo:
     tdm: TDMRepDeclaration
     sha256: str
     iscc: str | None = None
+    # Propiedades tdmseal:iscc* ya escritas en el XMP (DeclaredIscc), si las hay.
+    declared_iscc: object | None = None
 
     @property
     def is_pdfa(self) -> bool:
@@ -88,3 +90,6 @@ class SealResult:
     validations: dict = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    # ISCC completo (ContentIscc) de la entrada y de la salida, con --iscc.
+    iscc_input: object | None = None
+    iscc_output: object | None = None

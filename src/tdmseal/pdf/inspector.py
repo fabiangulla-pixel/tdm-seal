@@ -8,7 +8,8 @@ from pathlib import Path
 import pikepdf
 
 from tdmseal.errors import TDM001_PDF_UNREADABLE, TDM020_ENCRYPTED, TDMSealError
-from tdmseal.iscc import compute_iscc
+from tdmseal.iscc.data import compute_iscc
+from tdmseal.iscc.xmp import read_declared_iscc
 from tdmseal.models import PDFInfo, TDMRepDeclaration
 from tdmseal.pdf.encryption import is_encrypted
 from tdmseal.pdf.signatures import has_digital_signature
@@ -76,10 +77,12 @@ def inspect_pdf(path: Path) -> PDFInfo:
             pdfa_part, pdfa_conformance = _detect_pdfa(xmp_root)
             pdfua_part = _detect_pdfua(xmp_root)
             tdm = read_tdmrep(xmp_root)
+            declared_iscc = read_declared_iscc(xmp_root)
         else:
             pdfa_part, pdfa_conformance = None, None
             pdfua_part = None
             tdm = TDMRepDeclaration(reservation=None, policy_url=None, present=False)
+            declared_iscc = None
 
         return PDFInfo(
             path=path,
@@ -94,4 +97,5 @@ def inspect_pdf(path: Path) -> PDFInfo:
             tdm=tdm,
             sha256=sha256_file(path),
             iscc=compute_iscc(path).iscc,
+            declared_iscc=declared_iscc,
         )

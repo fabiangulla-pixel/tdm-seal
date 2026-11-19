@@ -55,6 +55,121 @@ def make_pdf_with_xmp(tmp_path: Path):
     return _make
 
 
+def _escape_pdf_string(text: str) -> bytes:
+    raw = text.encode("cp1252")
+    return raw.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
+
+
+def build_text_pdf(
+    path: Path,
+    pages: list[str],
+    *,
+    title: str | None = None,
+    xmp_bytes: bytes | None = None,
+) -> Path:
+    """PDF con texto real extraíble (Helvetica, WinAnsiEncoding), una línea por renglón."""
+    pdf = pikepdf.Pdf.new()
+    font = pdf.make_indirect(
+        pikepdf.Dictionary(
+            Type=pikepdf.Name("/Font"),
+            Subtype=pikepdf.Name("/Type1"),
+            BaseFont=pikepdf.Name("/Helvetica"),
+            Encoding=pikepdf.Name("/WinAnsiEncoding"),
+        )
+    )
+    for page_text in pages:
+        ops = [b"BT /F1 11 Tf 14 TL 40 760 Td"]
+        for line in page_text.splitlines():
+            ops.append(b"(" + _escape_pdf_string(line) + b") Tj T*")
+        ops.append(b"ET")
+        page = pdf.add_blank_page(page_size=(595, 842))
+        page.obj["/Resources"] = pikepdf.Dictionary(Font=pikepdf.Dictionary(F1=font))
+        page.obj["/Contents"] = pdf.make_stream(b"\n".join(ops))
+    if title is not None:
+        pdf.docinfo["/Title"] = title
+    if xmp_bytes is not None:
+        stream = pikepdf.Stream(pdf, xmp_bytes)
+        stream["/Type"] = pikepdf.Name("/Metadata")
+        stream["/Subtype"] = pikepdf.Name("/XML")
+        pdf.Root["/Metadata"] = stream
+    pdf.save(path)
+    return path
+
+
+SAMPLE_TEXT = [
+    "La minería de textos y datos sobre esta obra está reservada.\n"
+    "Capítulo primero. De cómo el editor declaró sus derechos\n"
+    "frente al entrenamiento de modelos de inteligencia artificial.",
+    "Segunda página: el contenido no cambia al sellar el archivo,\n"
+    "porque TDM Seal solo modifica los metadatos XMP del documento.",
+]
+
+
+@pytest.fixture
+def make_text_pdf(tmp_path: Path):
+    """Factory: PDF con texto extraíble (para el ISCC de contenido)."""
+
+    def _make(
+        name: str = "texto.pdf",
+        pages: list[str] | None = None,
+        *,
+        title: str | None = None,
+        xmp_bytes: bytes | None = None,
+    ) -> Path:
+        return build_text_pdf(
+            tmp_path / name, pages or SAMPLE_TEXT, title=title, xmp_bytes=xmp_bytes
+        )
+
+    return _make
+
+
+def build_incremental_without_info(path: Path, *, title: str, subject: str) -> Path:
+    """PDF con Info en el tráiler original y una actualización incremental que no lo repite.
+
+    Reproduce lo que hace MuPDF al guardar de forma incremental (caso real
+    encontrado el 19-nov-2026: al sellar, el título y el asunto se perdían).
+    """
+    import re
+
+    pdf = pikepdf.Pdf.new()
+    pdf.add_blank_page(page_size=(200, 200))
+    pdf.docinfo["/Title"] = title
+    pdf.docinfo["/Subject"] = subject
+    pdf.save(path, object_stream_mode=pikepdf.ObjectStreamMode.disable)
+    data = path.read_bytes()
+
+    prev_xref = int(re.findall(rb"startxref\s+(\d+)", data)[-1])
+    root_num = int(re.search(rb"/Root\s+(\d+)\s+\d+\s+R", data).group(1))
+    size = int(re.search(rb"/Size\s+(\d+)", data).group(1))
+    with pikepdf.open(path) as reopened:
+        pages_num, pages_gen = reopened.Root.Pages.objgen
+
+    obj = (
+        f"{root_num} 0 obj\n<< /Type /Catalog /Pages {pages_num} {pages_gen} R >>\nendobj\n"
+    ).encode()
+    body = data if data.endswith(b"\n") else data + b"\n"
+    obj_offset = len(body)
+    xref_offset = obj_offset + len(obj)
+    update = (
+        obj
+        + f"xref\n{root_num} 1\n{obj_offset:010d} 00000 n \n".encode()
+        + f"trailer\n<< /Size {size} /Root {root_num} 0 R /Prev {prev_xref} >>\n".encode()
+        + f"startxref\n{xref_offset}\n%%EOF\n".encode()
+    )
+    path.write_bytes(body + update)
+    return path
+
+
+@pytest.fixture
+def make_incremental_pdf(tmp_path: Path):
+    """Factory: PDF cuyo último tráiler no repite /Info (ver build_incremental_without_info)."""
+
+    def _make(name: str = "incremental.pdf", *, title: str = "T", subject: str = "S") -> Path:
+        return build_incremental_without_info(tmp_path / name, title=title, subject=subject)
+
+    return _make
+
+
 def _pdfa_xmp(part: int, conformance: str | None) -> bytes:
     conformance_attr = f' pdfaid:conformance="{conformance}"' if conformance else ""
     return (

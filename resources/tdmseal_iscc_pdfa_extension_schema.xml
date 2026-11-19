@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about=""
+      xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#"
+      xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">
+    <pdfaSchema:schema>TDM Seal ISCC (International Standard Content Code, ISO 24138)</pdfaSchema:schema>
+    <pdfaSchema:namespaceURI>https://github.com/fabiangulla-pixel/tdm-seal/ns/iscc/1.0/</pdfaSchema:namespaceURI>
+    <pdfaSchema:prefix>tdmseal</pdfaSchema:prefix>
+    <pdfaSchema:property>
+      <rdf:Seq>
+        <rdf:li rdf:parseType="Resource">
+          <pdfaProperty:name>isccContentCode</pdfaProperty:name>
+          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+          <pdfaProperty:category>external</pdfaProperty:category>
+          <pdfaProperty:description>ISCC Text-Code (Content-Code) computed from the document text; it does not change when only metadata is modified.</pdfaProperty:description>
+        </rdf:li>
+        <rdf:li rdf:parseType="Resource">
+          <pdfaProperty:name>isccSource</pdfaProperty:name>
+          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+          <pdfaProperty:category>external</pdfaProperty:category>
+          <pdfaProperty:description>Full ISCC-CODE of the source file before TDM Seal added its metadata.</pdfaProperty:description>
+        </rdf:li>
+        <rdf:li rdf:parseType="Resource">
+          <pdfaProperty:name>isccSourceDatahash</pdfaProperty:name>
+          <pdfaProperty:valueType>Text</pdfaProperty:valueType>
+          <pdfaProperty:category>external</pdfaProperty:category>
+          <pdfaProperty:description>BLAKE3 multihash of the source file before TDM Seal added its metadata.</pdfaProperty:description>
+        </rdf:li>
+      </rdf:Seq>
+    </pdfaSchema:property>
+  </rdf:Description>
+</rdf:RDF>

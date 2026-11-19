@@ -15,3 +15,5 @@ class SealConfig:
     allow_encrypted: bool = False
     run_qpdf_check: bool = True
     run_verapdf: bool = True
+    # Calcular el ISCC completo (Meta + Text + Data + Instance) y escribirlo en el XMP.
+    compute_iscc: bool = False

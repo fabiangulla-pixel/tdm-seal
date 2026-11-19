@@ -11,6 +11,11 @@ import click
 from tdmseal.appconfig import AppDefaults, load_defaults, save_defaults
 from tdmseal.config import SealConfig
 from tdmseal.discovery import iter_pdfs
+from tdmseal.iscc.content import (
+    NO_EXTRA_WARNING,
+    compute_content_iscc,
+    content_extra_available,
+)
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.pdf.inspector import inspect_pdf
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
@@ -42,6 +47,12 @@ def main() -> None:
 @click.option("--publisher-acronym", default=None)
 @click.option("--publisher-website", default=None)
 @click.option("--publisher-email", default=None, help="Correo de derechos (para el reporte).")
+@click.option(
+    "--iscc",
+    "with_iscc",
+    is_flag=True,
+    help="Calcular el ISCC completo y escribirlo en el XMP (ver `tdmseal iscc`).",
+)
 def seal(
     target: Path,
     reservation: int | None,
@@ -54,6 +65,7 @@ def seal(
     publisher_acronym: str | None,
     publisher_website: str | None,
     publisher_email: str | None,
+    with_iscc: bool,
 ) -> None:
     """Sella un PDF o una carpeta de PDF con una declaración TDMRep.
 
@@ -77,12 +89,15 @@ def seal(
         output_suffix=suffix,
         force_signed=force_signed,
         allow_encrypted=allow_encrypted,
+        compute_iscc=with_iscc,
     )
 
     pdfs = iter_pdfs(target, recursive)
     if not pdfs:
         click.echo("No se encontraron PDF para procesar.")
         return
+    if with_iscc and not content_extra_available():
+        click.echo(f"Aviso: {NO_EXTRA_WARNING}")
 
     ok = skipped = failed = 0
     for pdf_path in pdfs:
@@ -90,6 +105,8 @@ def seal(
         if result.status == "success":
             ok += 1
             click.echo(f"[OK] {pdf_path} -> {result.output_path}")
+            if result.iscc_input is not None:
+                click.echo(f"     ISCC original: {result.iscc_input.iscc}")
         elif result.status == "skipped":
             skipped += 1
             click.echo(f"[OMITIDO {result.reason_code}] {pdf_path}: {'; '.join(result.errors)}")
@@ -123,6 +140,9 @@ def inspect(target: Path) -> None:
     click.echo(f"TDM policy: {info.tdm.policy_url}")
     click.echo(f"Firma digital: {'sí' if info.signed else 'no'}")
     click.echo(f"Cifrado: {'sí' if info.encrypted else 'no'}")
+    if info.declared_iscc is not None:
+        click.echo(f"ISCC de contenido declarado: {info.declared_iscc.content_code}")
+        click.echo(f"ISCC del original declarado: {info.declared_iscc.source_iscc}")
 
 
 @main.command()
@@ -136,8 +156,51 @@ def show(target: Path, fmt: str) -> None:
         "tdm_reservation": info.tdm.reservation,
         "tdm_policy": info.tdm.policy_url,
         "source": "document-level-xmp" if info.tdm.present else None,
+        "declared_iscc": info.declared_iscc.to_dict() if info.declared_iscc else None,
     }
     click.echo(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+@main.command("iscc")
+@click.argument("target", type=click.Path(exists=True, path_type=Path))
+@click.option("--recursive", is_flag=True, help="Procesar subcarpetas si TARGET es una carpeta.")
+@click.option("--json", "as_json", is_flag=True, help="Salida en JSON.")
+def iscc_command(target: Path, recursive: bool, as_json: bool) -> None:
+    """Calcula el ISCC completo de uno o varios PDF, sin modificarlos.
+
+    ISCC-CODE = Meta-Code + Text-Code + Data-Code + Instance-Code, compatible
+    con iscc-sdk. El Text-Code se calcula sobre el texto y no cambia al
+    sellar; requiere el extra opcional `tdm-seal[iscc]`.
+    """
+    pdfs = iter_pdfs(target, recursive)
+    if not pdfs:
+        click.echo("No se encontraron PDF para procesar.")
+        return
+    results: dict[str, dict] = {}
+    failed = 0
+    for pdf_path in pdfs:
+        try:
+            result = compute_content_iscc(pdf_path)
+        except Exception as exc:  # noqa: BLE001 — se reporta y se sigue con el resto
+            failed += 1
+            results[str(pdf_path)] = {"error": str(exc)}
+            if not as_json:
+                click.echo(f"{pdf_path.name}\tERROR\t{exc}")
+            continue
+        results[str(pdf_path)] = result.to_dict()
+        if not as_json:
+            click.echo(f"{pdf_path.name}")
+            click.echo(f"  ISCC-CODE:    {result.iscc}")
+            click.echo(f"  Meta-Code:    {result.meta_code}  ({result.name})")
+            click.echo(f"  Text-Code:    {result.text_code or '—'}")
+            click.echo(f"  Data-Code:    {result.data_code}")
+            click.echo(f"  Instance:     {result.instance_code}")
+            for warning in result.warnings:
+                click.echo(f"  Aviso: {warning}")
+    if as_json:
+        click.echo(json.dumps(results, ensure_ascii=False, indent=2))
+    if failed:
+        sys.exit(1)
 
 
 @main.command()

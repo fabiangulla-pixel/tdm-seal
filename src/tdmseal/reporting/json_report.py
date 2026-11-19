@@ -41,6 +41,23 @@ def _pdf_info_to_dict(info: PDFInfo | None) -> dict | None:
         "has_xmp": info.has_xmp,
         "tdm_reservation": info.tdm.reservation,
         "tdm_policy": info.tdm.policy_url,
+        "declared_iscc": info.declared_iscc.to_dict() if info.declared_iscc else None,
+    }
+
+
+def _iscc_block(result: SealResult) -> dict | None:
+    """Bloque ISCC del reporte (solo si se pidió con --iscc)."""
+    if result.iscc_input is None and result.iscc_output is None:
+        return None
+    before = result.iscc_input
+    after = result.iscc_output
+    stable = None
+    if before is not None and after is not None and before.text_code:
+        stable = before.text_code == after.text_code
+    return {
+        "input": before.to_dict() if before else None,
+        "output": after.to_dict() if after else None,
+        "content_code_unchanged_by_sealing": stable,
     }
 
 
@@ -55,6 +72,7 @@ def build_report(result: SealResult, publisher: PublisherInfo | None = None) -> 
         "reason_code": result.reason_code,
         "input": _pdf_info_to_dict(result.before),
         "output": _pdf_info_to_dict(result.after),
+        "iscc": _iscc_block(result),
         "validation": result.validations,
         "warnings": result.warnings,
         "errors": result.errors,

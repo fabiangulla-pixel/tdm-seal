@@ -13,10 +13,19 @@ legible por máquinas, de que los derechos de minería de textos y datos están
 reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
 padre) para la especificación funcional y técnica completa.
 
-## Estado actual (v0.2.1 — núcleo + GUI + PDF/A + políticas + ISCC)
+## Estado actual (v0.5.0 — núcleo + GUI + PDF/A + políticas + ISCC de contenido)
 
 Implementado y con pruebas automatizadas:
 
+- **ISCC de contenido** (ISO 24138), con `--iscc` o la casilla de la GUI:
+  ISCC-CODE completo (Meta + Text + Data + Instance), idéntico al que
+  calcula iscc-sdk. El **Text-Code** se calcula sobre el texto del libro,
+  no sobre los bytes: **no cambia al sellar**, así que la reserva queda
+  ligada a la obra y no solo al archivo. Se escribe en el XMP
+  (`tdmseal:isccContentCode`, `tdmseal:isccSource`; ver
+  `docs/xmp-namespace-iscc.md`) y en el reporte. Requiere el extra
+  `tdm-seal[iscc]`; sin él se calcula lo demás y se avisa. No sustituye al
+  ISBN, al DOI ni a ONIX: los complementa;
 - **PDF/A-1/2/3**: al sellar, se declara el namespace TDMRep en el
   esquema de extensión XMP (`pdfaExtension:schemas`), conservando los
   esquemas que ya traía el archivo; PDF/A-4 no lo necesita y no se toca.
@@ -28,14 +37,8 @@ Implementado y con pruebas automatizadas:
 - **Policy Builder**: `tdmseal policy build` (o el botón "Generar
   artefactos de política…" de la GUI) genera `policy.jsonld` (ODRL, perfil
   TDMRep), `policy.html` y `tdmrep.json` para publicar en el sitio;
-- **identificador ISCC del archivo** (`tdmseal/iscc.py`, vía `iscc-core`):
-  se calcula a partir del propio contenido binario del PDF, no de su nombre
-  ni de su ubicación, por lo que reconoce el mismo archivo aunque cambie de
-  nombre o de carpeta, y cambia si el contenido cambia. No sustituye al
-  ISBN, al DOI ni a ONIX: los complementa. Visible en `inspect`, `show`,
-  `audit` y en el reporte JSON. Primer paso hacia la visión SIMEH (registro
-  de ISCC + declaración TDM + sello de tiempo RFC 3161 + historial de
-  versiones — pendiente);
+- **ISCC rápido de bytes** (Data-Code + Instance-Code) en `inspect`,
+  `show` y `audit`: identifica el archivo exacto (cambia al sellar);
 - inspección de PDF (versión, páginas, cifrado, firma digital, XMP, TDMRep);
 - lectura y escritura de TDMRep en el XMP de nivel de documento, preservando
   todo lo demás;
@@ -46,28 +49,29 @@ Implementado y con pruebas automatizadas:
 - relectura y verificación del XMP escrito;
 - verificación de integridad sintáctica (`pikepdf.Pdf.check_pdf_syntax`);
 - comprobación de invariantes no-metadata (páginas, geometría, anotaciones,
-  adjuntos);
+  adjuntos) y de que el diccionario Info (título, autor, asunto) no se
+  pierde, incluido el heredado de actualizaciones incrementales;
 - reporte JSON por archivo procesado, con datos opcionales de la editorial;
 - valores por defecto (editorial, reserva, política) guardados en
   `~/.tdmseal/config.json` — `tdmseal config show|set` desde la CLI, o el
   botón "Guardar como valores por defecto" en la GUI;
-- CLI: `tdmseal seal`, `inspect`, `show`, `audit`, `config`, `policy build`;
+- CLI: `tdmseal seal`, `iscc`, `inspect`, `show`, `audit`, `config`,
+  `policy build`;
 - **GUI de escritorio (PySide6)**: `TDM-Seal.bat` (doble clic, prepara su
   propio entorno virtual la primera vez) o `dist/TDM-Seal.exe` (standalone,
   sin Python instalado — ver `scripts/build_exe.bat`).
 
 **Limitaciones conocidas de lo que ya existe:**
 
-- el ISCC actual es solo Data-Code + Instance-Code, es decir, una huella de
-  los **bytes** del archivo: cambia al sellar. Todavía no hay Content-Code
-  (huella del texto), que es el que sobrevive al sellado y a otras
-  conversiones;
+- si el PDF no tiene título, el Meta-Code se deriva del nombre del archivo
+  (como en iscc-sdk) y cambia con el sufijo `_TDM`; el Text-Code no;
+- los PDF escaneados sin OCR no tienen Text-Code;
 - el esquema de extensión PDF/A no es el archivo oficial de la PDF
   Association;
 - los PDF de prueba se generan con pikepdf; faltan fixtures reales de
   PDF/A, PDF/UA, firmados y con formularios.
 
-**Pendiente** (hoja de ruta v0.5–v1.0): ISCC de contenido, EPUB, señales
+**Pendiente** (hoja de ruta v0.6–v1.0): EPUB, señales
 de sitio (`tdmrep.json` con `tdmseal site`, cabeceras HTTP), política ODRL
 completa, preferencias IETF AIPREF, aviso visible opcional, manifiesto de
 catálogo y empaquetado 1.0.
@@ -83,8 +87,9 @@ pip a mitad de escritura. Por ejemplo:
 python -m venv "$HOME/.venvs/tdm-seal"
 "$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev]"
 
-# Para usar la GUI, añade el extra "gui" (PySide6):
-"$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev,gui]"
+# Para usar la GUI, añade el extra "gui" (PySide6), y para el ISCC de
+# contenido el extra "iscc" (pypdfium2):
+"$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev,gui,iscc]"
 ```
 
 ## GUI de escritorio
@@ -118,6 +123,13 @@ tdmseal seal libro.pdf --reservation 1 --policy "https://editorial.example.edu/t
 
 # Carpeta completa
 tdmseal seal ./pdf-finales --recursive
+
+# Sellar y además calcular el ISCC y guardarlo en el XMP
+tdmseal seal libro.pdf --iscc
+
+# Solo calcular el ISCC (sin modificar nada)
+tdmseal iscc libro.pdf
+tdmseal iscc ./catalogo --recursive --json
 
 # Solo auditar, sin modificar
 tdmseal inspect libro.pdf

@@ -53,6 +53,7 @@ def test_apply_tdm_seals_file_and_enables_open_folder(qtbot, make_pdf):
 
     window._load_paths([pdf_path])
     qtbot.waitUntil(lambda: window.table.item(0, 5).text() == "listo", timeout=5000)
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
 
     window._run_seal()
     qtbot.waitUntil(lambda: window.btn_open_folder.isEnabled(), timeout=5000)
@@ -70,12 +71,48 @@ def test_apply_tdm_skips_signed_pdf(qtbot, make_signed_pdf):
     window._load_paths([pdf_path])
     qtbot.waitUntil(lambda: window.table.item(0, 5).text() != "", timeout=5000)
     assert "firmado" in window.table.item(0, 5).text()
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
 
     window._run_seal()
     qtbot.waitUntil(lambda: "procesados" in window.status_label.text(), timeout=5000)
 
     assert not pdf_path.with_name("gui_signed_TDM.pdf").exists()
     assert "0 correctos" in window.status_label.text()
+
+
+def test_audit_fills_iscc_column_and_seal_writes_iscc(qtbot, make_text_pdf):
+    pytest.importorskip("pypdfium2")
+    from tdmseal.iscc.content import compute_content_iscc
+    from tdmseal.pdf.inspector import inspect_pdf
+
+    pdf_path = make_text_pdf("gui_iscc.pdf", title="Derechos y minería")
+    expected = compute_content_iscc(pdf_path)
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    assert window.chk_iscc.isChecked()
+
+    window._load_paths([pdf_path])
+    qtbot.waitUntil(lambda: window.table.item(0, gui_module.ISCC_COL).text() != "", timeout=10000)
+    assert window.table.item(0, gui_module.ISCC_COL).text() == expected.iscc
+    assert "Text-Code" in window.table.item(0, gui_module.ISCC_COL).toolTip()
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
+
+    window._run_seal()
+    qtbot.waitUntil(lambda: window.btn_open_folder.isEnabled(), timeout=10000)
+
+    declared = inspect_pdf(pdf_path.with_name("gui_iscc_TDM.pdf")).declared_iscc
+    assert declared.content_code == expected.text_code
+
+
+def test_iscc_unchecked_leaves_column_empty(qtbot, make_text_pdf):
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window.chk_iscc.setChecked(False)
+
+    window._load_paths([make_text_pdf("sin_iscc.pdf")])
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
+
+    assert window.table.item(0, gui_module.ISCC_COL).text() == ""
 
 
 def test_save_defaults_persists_publisher_and_policy(qtbot, isolate_appconfig):

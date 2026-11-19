@@ -55,3 +55,24 @@ def compare_non_metadata_invariants(input_path: Path, output_path: Path) -> dict
             issues.append("número de adjuntos (embedded files) cambió")
 
     return {"status": "PASS" if not issues else "FAIL", "issues": issues}
+
+
+def compare_docinfo(input_path: Path, output_path: Path) -> dict:
+    """Comprueba que el diccionario Info (título, autor…) no se perdió ni cambió.
+
+    Compara el Info efectivo, incluido el heredado de tráileres anteriores
+    (ver `pdf/docinfo.py`). Se ignora `/ModDate`/`/Producer`, que algunos
+    flujos actualizan legítimamente.
+    """
+    from tdmseal.pdf.docinfo import effective_docinfo
+
+    ignored = {"/ModDate", "/Producer"}
+    before = {k: v for k, v in effective_docinfo(input_path).items() if k not in ignored}
+    after = {k: v for k, v in effective_docinfo(output_path).items() if k not in ignored}
+    issues = []
+    for key, value in before.items():
+        if key not in after:
+            issues.append(f"el diccionario Info perdió {key}")
+        elif after[key] != value:
+            issues.append(f"el diccionario Info cambió {key}")
+    return {"status": "PASS" if not issues else "FAIL", "issues": issues}

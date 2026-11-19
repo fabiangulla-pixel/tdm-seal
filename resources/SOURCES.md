@@ -88,3 +88,12 @@ tiempo antes de implementar una fase, volver a revisarlas.
   de PDF con pypdfium2 (`idk.code_text`). Arrastra muchas dependencias
   (numpy, pillow-heif, exiv2, pytaglib, iscc-tika, pypdfium2, ebookmeta,
   python-docx…). Docs: https://sdk.iscc.codes, https://core.iscc.codes.
+  **Ya no usa iscc-core** sino `iscc-lib` 0.7.0 (Rust); los códigos
+  coinciden con los de iscc-core 1.5.0 (comprobado). Leído su código fuente
+  (`pdf.py`, `text.py`, `main.py`) para reproducir el procedimiento:
+  Text-Code = `gen_text_code_v0(text_clean(texto de pypdfium2), bits=64)`;
+  Meta-Code con el título de Info/XMP o, si falta, el nombre del archivo. En
+  EPUB y otros formatos el SDK extrae texto con `iscc-tika` (Tika compilado
+  con GraalVM, ~JVM embebida); relevante para la fase EPUB.
+- iscc-sdk no escribe el ISCC en el XMP del PDF (solo claves `/iscc_*` en
+  Info): de ahí el namespace propio, `docs/xmp-namespace-iscc.md`.

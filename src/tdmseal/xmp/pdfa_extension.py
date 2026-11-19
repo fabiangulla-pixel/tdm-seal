@@ -26,14 +26,15 @@ PDFA_PROPERTY_NS = "http://www.aiim.org/pdfa/ns/property#"
 _SCHEMAS_TAG = f"{{{PDFA_EXTENSION_NS}}}schemas"
 _NAMESPACE_URI_TAG = f"{{{PDFA_SCHEMA_NS}}}namespaceURI"
 _ABOUT_ATTR = f"{{{RDF_NS}}}about"
-_TEMPLATE_PATH = resource_path("tdmrep_pdfa_extension_schema.xml")
+TDMREP_TEMPLATE = "tdmrep_pdfa_extension_schema.xml"
+ISCC_TEMPLATE = "tdmseal_iscc_pdfa_extension_schema.xml"
 
 MergeOperation = Literal["create", "update", "unchanged"]
 
 
-def _build_schema_li() -> etree._Element:
-    """Construye el <rdf:li rdf:parseType="Resource"> con la descripción del esquema TDM."""
-    template_root = find_rdf_root(parse_xmp(_TEMPLATE_PATH.read_bytes()))
+def _build_schema_li(template_name: str) -> etree._Element:
+    """Construye el <rdf:li rdf:parseType="Resource"> con la descripción de un esquema."""
+    template_root = find_rdf_root(parse_xmp(resource_path(template_name).read_bytes()))
     desc = next(iter_descriptions(template_root))
 
     li = etree.Element(f"{{{RDF_NS}}}li", nsmap={"rdf": RDF_NS})
@@ -44,10 +45,24 @@ def _build_schema_li() -> etree._Element:
 
 
 def merge_tdmrep_extension_schema(rdf_root: etree._Element) -> MergeOperation:
-    """Asegura que `pdfaExtension:schemas` declare el namespace TDMRep.
+    """Asegura que `pdfaExtension:schemas` declare el namespace TDMRep."""
+    return merge_extension_schema(rdf_root, TDM_NS, TDMREP_TEMPLATE)
+
+
+def merge_iscc_extension_schema(rdf_root: etree._Element) -> MergeOperation:
+    """Asegura que `pdfaExtension:schemas` declare el namespace ISCC de TDM Seal."""
+    from tdmseal.iscc.xmp import ISCC_XMP_NS
+
+    return merge_extension_schema(rdf_root, ISCC_XMP_NS, ISCC_TEMPLATE)
+
+
+def merge_extension_schema(
+    rdf_root: etree._Element, namespace: str, template_name: str
+) -> MergeOperation:
+    """Asegura que `pdfaExtension:schemas` declare `namespace` con la plantilla dada.
 
     No toca otros esquemas ya declarados (p. ej. por InDesign). Idempotente:
-    si la entrada TDM ya está presente, no la duplica.
+    si la entrada del namespace ya está presente, no la duplica.
     """
     schemas_el = None
     for desc in iter_descriptions(rdf_root):
@@ -64,7 +79,7 @@ def merge_tdmrep_extension_schema(rdf_root: etree._Element) -> MergeOperation:
         desc.set(_ABOUT_ATTR, "")
         schemas_el = etree.SubElement(desc, _SCHEMAS_TAG)
         bag = etree.SubElement(schemas_el, f"{{{RDF_NS}}}Bag")
-        bag.append(_build_schema_li())
+        bag.append(_build_schema_li(template_name))
         return "create"
 
     bag = schemas_el.find(f"{{{RDF_NS}}}Bag")
@@ -73,8 +88,8 @@ def merge_tdmrep_extension_schema(rdf_root: etree._Element) -> MergeOperation:
 
     for li in bag.findall(f"{{{RDF_NS}}}li"):
         ns_el = li.find(_NAMESPACE_URI_TAG)
-        if ns_el is not None and ns_el.text and ns_el.text.strip() == TDM_NS:
+        if ns_el is not None and ns_el.text and ns_el.text.strip() == namespace:
             return "unchanged"
 
-    bag.append(_build_schema_li())
+    bag.append(_build_schema_li(template_name))
     return "update"

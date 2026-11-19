@@ -1,5 +1,51 @@
 # Changelog
 
+## [0.5.0] - 2026-11-19
+
+### Añadido
+
+- **ISCC de contenido** (`tdmseal/iscc/`): ISCC-CODE completo (Meta-Code +
+  Text-Code + Data-Code + Instance-Code), idéntico al de iscc-sdk 0.9.7 para
+  PDF (comprobado con fixtures y con PDF reales). El **Text-Code** se calcula
+  sobre el texto y **no cambia al sellar**; una prueba lo exige.
+  - Extra opcional `pip install tdm-seal[iscc]` (pypdfium2, la misma
+    extracción de texto que usa iscc-sdk). Sin él, se calculan Meta, Data e
+    Instance y se avisa de que falta el de contenido.
+  - PDF sin capa de texto (escaneo sin OCR): se omite el Text-Code y se avisa
+    (el SDK calcularía el de un texto vacío, que no identifica nada).
+- **ISCC en el XMP** con namespace propio
+  `https://github.com/fabiangulla-pixel/tdm-seal/ns/iscc/1.0/` (prefijo
+  `tdmseal`): `isccContentCode`, `isccSource`, `isccSourceDatahash`.
+  Declarado en el esquema de extensión PDF/A. Re-sellar conserva la
+  procedencia original. Ver `docs/xmp-namespace-iscc.md`.
+- CLI: `tdmseal iscc ARCHIVO|CARPETA [--recursive] [--json]` y
+  `tdmseal seal --iscc`. `inspect` y `show` muestran el ISCC declarado.
+- Reporte JSON: bloque `iscc` (entrada, salida y
+  `content_code_unchanged_by_sealing`) y validaciones `iscc_xmp_re_read` e
+  `iscc_content_stable`.
+- GUI: casilla "Calcular ISCC" (activada por defecto) y columna ISCC con las
+  unidades en la ayuda emergente.
+- `scripts/iscc_sdk_codes.py`: herramienta de desarrollo para comparar contra
+  iscc-sdk.
+
+### Corregido
+
+- **Al sellar se perdían el título, el autor y el asunto** de los PDF con
+  actualización incremental cuyo último tráiler no repite `/Info` (lo hace
+  MuPDF; visto con un PDF real). pikepdf solo lee el último tráiler y
+  guardaba el archivo sin `/Info`, y el sellado se daba por correcto. Ahora
+  se vuelve a enlazar el Info heredado (`pdf/docinfo.py`) y una validación
+  nueva, `docinfo_preserved`, marca el sellado como fallido si el Info se
+  pierde o cambia.
+- `scripts/build_exe.bat` no empaquetaba `resources/`: un `.exe` nuevo habría
+  fallado al sellar PDF/A por no encontrar la plantilla del esquema.
+
+### Cambiado
+
+- `tdmseal/iscc.py` pasa a ser el paquete `tdmseal/iscc/` (`data.py`
+  conserva el ISCC de bytes de la v0.2.0; misma API pública).
+- `TDM-Seal.bat` instala `[gui,iscc]`.
+
 ## [0.2.1] - 2026-11-19
 
 Puesta al día de la documentación con lo que de verdad hay en el código.

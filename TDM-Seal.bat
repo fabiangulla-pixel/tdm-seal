@@ -16,7 +16,7 @@ if not exist "%VENV_DIR%\Scripts\pythonw.exe" (
         exit /b 1
     )
     "%VENV_DIR%\Scripts\python.exe" -m pip install --upgrade pip
-    "%VENV_DIR%\Scripts\python.exe" -m pip install -e "%PROJECT_DIR%.[gui]"
+    "%VENV_DIR%\Scripts\python.exe" -m pip install -e "%PROJECT_DIR%.[gui,iscc]"
     if errorlevel 1 (
         echo Fallo la instalacion de dependencias.
         pause

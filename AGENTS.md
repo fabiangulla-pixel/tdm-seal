@@ -60,12 +60,22 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v0.2.1, 19-nov-2026)
+## Estado (v0.5.0, 19-nov-2026)
 
 Hecho y probado: PDF/A-1/2/3 (`xmp/pdfa_extension.py`), veraPDF opcional
 (`SKIPPED` si no está), Policy Builder (`policy/`, `tdmseal policy build`),
-ISCC de bytes (`iscc.py`: Data-Code + Instance-Code), tests de GUI con
-`pytest-qt` (`tests/integration/test_gui.py`).
+ISCC (`iscc/`: `data.py` de bytes; `content.py` completo, compatible con
+iscc-sdk; `xmp.py` namespace propio), Info heredado (`pdf/docinfo.py`),
+tests de GUI con `pytest-qt` (`tests/integration/test_gui.py`).
+
+ISCC: para comparar contra iscc-sdk real hay un venv aparte en
+`%USERPROFILE%\.venvs\iscc-sdk-ref` (iscc-sdk 0.9.7, Python 3.12); si existe,
+`test_full_iscc_code_matches_live_iscc_sdk` lo usa, si no se omite. iscc-sdk
+NO debe ser dependencia del proyecto (pesado: Tika embebido, numpy, exiv2).
+
+Regla nueva: todo lo que escriba en el PDF debe comprobar después que el
+diccionario Info sigue igual (`compare_docinfo`). pikepdf no ve el `/Info`
+de tráileres anteriores; ver `pdf/docinfo.py`.
 
 Para correr `check.bat` desde PowerShell usar
 `cmd.exe /d /c "<ruta completa>\check.bat"`: sin `/d` y sin ruta completa,
