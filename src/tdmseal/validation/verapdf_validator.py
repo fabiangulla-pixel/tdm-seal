@@ -34,8 +34,10 @@ def run_verapdf(output_path: Path) -> dict:
         return {
             "status": "SKIPPED",
             "issues": [
-                "veraPDF no está instalado en este equipo (opcional). "
-                "Ver validation/verapdf_validator.py para instrucciones."
+                "Validación PDF/A omitida (SKIPPED): veraPDF no está instalado en este "
+                "equipo. El sello se aplicó igual, pero no se comprobó la conformidad "
+                "PDF/A del resultado. Para activarla, instale veraPDF "
+                "(https://software.verapdf.org/, requiere Java) y agregue su carpeta al PATH."
             ],
         }
 

@@ -60,18 +60,28 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Qué falta (roadmap, ver spec sección 32)
+## Estado (v0.2.1, 19-nov-2026)
 
-- **v0.2.0 — PDF/A**: descargar `TDMRepSchema-2025_02.xml` de la PDF
-  Association a `resources/` y documentar procedencia/checksum en
-  `resources/SOURCES.md`; implementar `xmp/pdfa_extension.py` (merge del
-  esquema de extensión para PDF/A-1/2/3, sección 6.2); integrar veraPDF en
-  `validation/verapdf_validator.py` (hoy siempre `SKIPPED`).
-- **v0.4.0 — Policy Builder**: generación de `policy.jsonld` (ODRL),
-  `policy.html`, `tdmrep.json` (secciones 26-27).
+Hecho y probado: PDF/A-1/2/3 (`xmp/pdfa_extension.py`), veraPDF opcional
+(`SKIPPED` si no está), Policy Builder (`policy/`, `tdmseal policy build`),
+ISCC de bytes (`iscc.py`: Data-Code + Instance-Code), tests de GUI con
+`pytest-qt` (`tests/integration/test_gui.py`).
+
+Para correr `check.bat` desde PowerShell usar
+`cmd.exe /d /c "<ruta completa>\check.bat"`: sin `/d` y sin ruta completa,
+cmd no lo encontró (arrancaba en `%USERPROFILE%`, visto el 19-nov-2026).
+`check.bat` hace `cd /d "%~dp0"` para no correr ruff fuera del repo.
+
+veraPDF ya no está instalado en este equipo (`C:\build_rf\tools\` no
+existe tras la migración al MSI): sus pruebas corren solo con mocks.
+
+## Qué falta
+
+- Hoja de ruta v0.5–v1.0 (ISCC de contenido, EPUB, `tdmseal site`, ODRL
+  completo, AIPREF, aviso visible, manifiesto, 1.0): ver el prompt de la
+  sesión del 19-nov-2026 y las decisiones que se tomen en cada fase.
 - Fixtures de integración con PDF/A-1/2/3/4, PDF/UA, firmados, cifrados,
   con adjuntos y formularios reales (hoy los tests usan PDFs mínimos
   generados con pikepdf; faltan los fixtures reales de la sección 19).
-- La GUI no tiene tests automatizados (PySide6 + pytest-qt no está
-  instalado); solo se verificó manualmente. Si se amplía mucho más, vale la
-  pena añadir `pytest-qt` a `[dev]`.
+- Reemplazar el esquema de extensión PDF/A redactado por el oficial de la
+  PDF Association cuando alguien lo descargue a mano.

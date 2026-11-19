@@ -12,6 +12,12 @@ def test_run_verapdf_skipped_when_not_installed(monkeypatch, tmp_path: Path):
     result = verapdf_validator.run_verapdf(tmp_path / "file.pdf")
 
     assert result["status"] == "SKIPPED"
+    # El mensaje debe ser útil para quien usa el .exe, sin remitir al código fuente.
+    message = result["issues"][0]
+    assert "SKIPPED" in message
+    assert "veraPDF" in message
+    assert "https://software.verapdf.org/" in message
+    assert ".py" not in message
 
 
 def test_run_verapdf_pass_when_compliant(monkeypatch, tmp_path: Path):

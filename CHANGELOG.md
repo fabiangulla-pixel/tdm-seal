@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.2.1] - 2026-11-19
+
+Puesta al día de la documentación con lo que de verdad hay en el código.
+Las funciones de abajo entraron en el commit `ecbf31b` (7-sep-2026), pero el
+CHANGELOG y el README las seguían dando por pendientes.
+
+### Documentado (ya existía en el código, con pruebas)
+
+- **PDF/A-1/2/3**: al sellar un PDF/A de esas partes se declara el namespace
+  TDMRep en `pdfaExtension:schemas` (`xmp/pdfa_extension.py`), sin tocar los
+  esquemas que ya traía el archivo (p. ej. los de InDesign) y sin duplicar
+  la entrada si se sella dos veces. PDF/A-4 no usa este mecanismo y no se
+  toca. La plantilla del esquema (`resources/tdmrep_pdfa_extension_schema.xml`)
+  es una redacción propia: el archivo oficial de la PDF Association no se
+  pudo descargar (ver `resources/SOURCES.md`).
+- **Validación veraPDF** (`validation/verapdf_validator.py`): si `verapdf`
+  está en el PATH, valida el PDF/A sellado; si no, queda `SKIPPED` y el
+  sellado sigue.
+- **Policy Builder** (`policy/`): `tdmseal policy build` y el botón
+  "Generar artefactos de política…" de la GUI generan `policy.jsonld`
+  (ODRL, perfil TDMRep), `policy.html` y `tdmrep.json`.
+- Pruebas de la GUI con `pytest-qt` (`tests/integration/test_gui.py`).
+
+### Cambiado
+
+- El aviso de veraPDF ausente ahora explica qué significa `SKIPPED` y cómo
+  instalarlo, en vez de remitir al código fuente (inútil para quien usa el
+  `.exe`).
+
+### Corregido
+
+- `check.bat` se ubica en la carpeta del repo (`cd /d "%~dp0"`): si cmd
+  arrancaba en otra carpeta, `ruff check .` recorría esa carpeta y fallaba.
+
+### Fuentes
+
+- `resources/SOURCES.md` registra las especificaciones consultadas el
+  19-nov-2026 (TDMRep, IETF AIPREF, ISCC) para las fases siguientes.
+
 ## [0.2.0] - 2026-10-27
 
 ### Añadido

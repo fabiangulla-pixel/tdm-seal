@@ -1,9 +1,12 @@
 @echo off
 REM Corre lint, formato y pruebas. Falla si algo no pasa.
-REM Requiere que TDMSEAL_VENV apunte al Python del entorno virtual del proyecto,
+REM Requiere que TDMSEAL_PY apunte al Python del entorno virtual del proyecto,
 REM o que "python" en PATH sea ese entorno.
 
 setlocal
+REM Ubicarse siempre en la carpeta del repo: si cmd arranca en otro sitio,
+REM "ruff check ." recorreria esa carpeta (visto el 19-nov-2026).
+cd /d "%~dp0"
 if "%TDMSEAL_PY%"=="" set TDMSEAL_PY=python
 
 echo [1/3] ruff check
