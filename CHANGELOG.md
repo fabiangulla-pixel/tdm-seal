@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.0.0] - 2026-11-19
+
+### Añadido
+
+- **GUI en cuatro pestañas** (Sellar, Política, Sitio web, Catálogo) con
+  estilo propio (Fusion + hoja de estilos: tarjetas, acento verde, controles
+  redondeados). La pestaña **Política** tiene condiciones por finalidad,
+  preferencias AIPREF y **vista previa** de la página de la política, que se
+  refresca al abrirla. Sitio web y Catálogo exponen `tdmseal site` y
+  `tdmseal manifest`; el manifiesto corre en segundo plano.
+- `docs/guia-10-minutos.md`: "Cómo reservar su catálogo frente al
+  entrenamiento de IA en 10 minutos".
+- README reescrito: qué hace por vía, comparación honesta con servicios de
+  registro comerciales, qué no reemplaza (respaldo jurídico, gestión
+  colectiva, negociación) y resumen en inglés.
+- `scripts/installer.iss` 1.0.0, con la guía, la documentación y la licencia.
+
+### Corregido
+
+- `scripts/build_exe.bat` no se podía ejecutar: un `echo … (ver README.md).`
+  dentro de un bloque `if ( … )` cerraba el bloque antes de tiempo.
+- `pyproject.toml`: `license = "MIT"` (SPDX); la forma de tabla quedará sin
+  soporte en setuptools el 18-feb-2027.
+
+### Verificado
+
+- `TDM-Seal.exe` (70,8 MB) reconstruido; contiene las dos plantillas del
+  esquema PDF/A y pypdfium2, excluye iscc-tika, y abre su ventana en ~6 s.
+
 ## [0.10.0] - 2026-11-19
 
 ### Añadido

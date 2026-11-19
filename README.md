@@ -1,220 +1,180 @@
 # TDM Seal
 
-> Sellado declarativo de derechos TDM para PDF editoriales
+> Reserva de derechos de minería de textos y datos (TDM) para PDF y EPUB
+> editoriales: dentro del archivo, ligada al contenido, en el sitio web y
+> como oferta de licencia. Gratis, de código abierto (MIT) y sin conexión.
 
-TDM Seal añade, verifica y documenta una declaración
-[TDMRep](https://www.w3.org/community/reports/tdmrep/CG-FINAL-tdmrep-20240510/)
-(`tdm:reservation`, `tdm:policy`) dentro de los metadatos XMP de nivel de
-documento de un PDF, sin tocar páginas, tipografías, imágenes, marcadores,
-enlaces, adjuntos ni otros metadatos.
+TDM Seal declara que una editorial **reserva sus derechos de minería de
+textos y datos**, incluido el entrenamiento de inteligencia artificial, por
+todas las vías que hoy existen, y genera la política con la que invita a
+licenciar. **No es DRM ni un bloqueo técnico:** es una señal declarativa,
+legible por máquinas y por personas.
 
-TDMRep **no es DRM ni un bloqueo técnico**: es una señal declarativa,
-legible por máquinas, de que los derechos de minería de textos y datos están
-reservados. Ver `TDM_SEAL_ESPECIFICACION_IMPLEMENTACION.md` (en la carpeta
-padre) para la especificación funcional y técnica completa.
+**Versión 1.0.0.** Guía rápida para editoriales:
+[Cómo reservar su catálogo frente al entrenamiento de IA en 10 minutos](docs/guia-10-minutos.md).
 
-## Estado actual (v0.7.0 — PDF y EPUB + ISCC + señales de sitio + AIPREF)
+## Qué hace
 
-Implementado y con pruebas automatizadas:
+| Vía | Cómo | Estándar |
+|---|---|---|
+| **Dentro del archivo** | `tdm:reservation` / `tdm:policy` en el XMP del PDF o en el OPF del EPUB, sin tocar páginas, fuentes, imágenes ni el resto de metadatos | W3C TDMRep (2024) |
+| **Ligada al contenido** | ISCC-CODE (Meta + Text + Data + Instance), idéntico al de iscc-sdk; el Text-Code **no cambia al sellar** y se guarda en el archivo | ISO 24138 (ISCC) |
+| **Sitio web** | `/.well-known/tdmrep.json`, cabeceras HTTP para Apache y Nginx, robots.txt y metaetiquetas HTML | TDMRep, IETF AIPREF |
+| **Oferta de licencia** | `policy.jsonld` y `policy.html`, con condiciones distintas para investigación y otros fines | ODRL 2.2, perfil TDMRep |
+| **Usos de IA en detalle** | `train-ai`, `ai-use`, `search` (por defecto: entrenar y usar IA, reservado; búsqueda, permitida) | IETF AIPREF (borrador) |
+| **Visible para personas** | Opcional y desactivado por defecto: página final (PDF) o documento final (EPUB) con el aviso en español e inglés | IPTC, buenas prácticas |
+| **Catálogo** | Manifiesto CSV/JSON por obra (hashes, ISCC, ISBN, reserva, política), con firma opcional | Para registros ISCC y licencias en bloque |
 
-- **Señales del sitio web**: `tdmseal site` genera
-  `/.well-known/tdmrep.json`, cabeceras HTTP para Apache y Nginx
-  (`tdm-reservation`, `tdm-policy`, `Content-Usage`), la regla de
-  robots.txt y las metaetiquetas HTML; `tdmseal site --check` valida un
-  `tdmrep.json`. No se publica nada: los archivos quedan en una carpeta;
-- **preferencias de IA (IETF AIPREF)**: `train-ai`, `ai-use`, `search`;
-  por defecto `train-ai=n, ai-use=n, search=y`. Van en la cabecera
-  `Content-Usage` y en robots.txt, y quedan registradas en el reporte. El
-  borrador aún no define cómo incrustarlas en PDF o EPUB;
-- **EPUB 2 y 3**: `tdm:reservation` / `tdm:policy` en el paquete OPF según
-  TDMRep, cambiando solo el OPF (el resto del contenedor queda idéntico,
-  `mimetype` primero y sin comprimir). EPUB con DRM → se omite (`TDM022`).
-  EPUBCheck opcional (`TDMSEAL_EPUBCHECK_JAR`): solo falla si el sellado
-  añade errores que el original no tenía;
-- **ISCC de contenido** (ISO 24138), con `--iscc` o la casilla de la GUI:
-  ISCC-CODE completo (Meta + Text + Data + Instance), idéntico al que
-  calcula iscc-sdk. El **Text-Code** se calcula sobre el texto del libro,
-  no sobre los bytes: **no cambia al sellar**, así que la reserva queda
-  ligada a la obra y no solo al archivo. Se escribe en el XMP
-  (`tdmseal:isccContentCode`, `tdmseal:isccSource`; ver
-  `docs/xmp-namespace-iscc.md`; en EPUB, en el OPF) y en el reporte.
-  Requiere el extra `tdm-seal[iscc]` para PDF y `tdm-seal[iscc-epub]`
-  (~110 MB) para EPUB; sin ellos se calcula lo demás y se avisa. No
-  sustituye al ISBN, al DOI ni a ONIX: los complementa;
-- **PDF/A-1/2/3**: al sellar, se declara el namespace TDMRep en el
-  esquema de extensión XMP (`pdfaExtension:schemas`), conservando los
-  esquemas que ya traía el archivo; PDF/A-4 no lo necesita y no se toca.
-  La plantilla del esquema es una redacción propia (el archivo oficial de la
-  PDF Association no se pudo descargar; ver `resources/SOURCES.md`);
-- **validación PDF/A con veraPDF**, opcional: si `verapdf` está en el PATH
-  se valida el resultado; si no, el reporte marca `SKIPPED` con un aviso que
-  explica cómo instalarlo, y el sellado sigue;
-- **Política de licencia**: `tdmseal policy build` (o el botón "Generar
-  artefactos de política…" de la GUI) genera `policy.jsonld` (ODRL, perfil
-  TDMRep, con condiciones distintas para investigación y otros fines),
-  `policy.html` (una invitación a licenciar, no un "no") y `tdmrep.json`;
-  `tdmseal policy check` valida una política contra el perfil;
-- **ISCC rápido de bytes** (Data-Code + Instance-Code) en `inspect`,
-  `show` y `audit`: identifica el archivo exacto (cambia al sellar);
-- inspección de PDF (versión, páginas, cifrado, firma digital, XMP, TDMRep);
-- lectura y escritura de TDMRep en el XMP de nivel de documento, preservando
-  todo lo demás;
-- idempotencia (sellar dos veces no duplica; cambiar el valor lo actualiza);
-- PDF firmado digitalmente → se omite por defecto (`TDM021`);
-- PDF cifrado → se omite por defecto (`TDM020`);
-- guardado en archivo nuevo (nunca sobrescribe el original);
-- relectura y verificación del XMP escrito;
-- verificación de integridad sintáctica (`pikepdf.Pdf.check_pdf_syntax`);
-- comprobación de invariantes no-metadata (páginas, geometría, anotaciones,
-  adjuntos) y de que el diccionario Info (título, autor, asunto) no se
-  pierde, incluido el heredado de actualizaciones incrementales;
-- reporte JSON por archivo procesado, con datos opcionales de la editorial;
-- valores por defecto (editorial, reserva, política) guardados en
-  `~/.tdmseal/config.json` — `tdmseal config show|set` desde la CLI, o el
-  botón "Guardar como valores por defecto" en la GUI;
-- CLI: `tdmseal seal`, `iscc`, `inspect`, `show`, `audit`, `config`,
-  `policy build`;
-- **GUI de escritorio (PySide6)**: `TDM-Seal.bat` (doble clic, prepara su
-  propio entorno virtual la primera vez) o `dist/TDM-Seal.exe` (standalone,
-  sin Python instalado — ver `scripts/build_exe.bat`).
+Y en todo momento:
 
-**Limitaciones conocidas de lo que ya existe:**
+- nunca sobrescribe el original (guarda `archivo_TDM.pdf` / `.epub`);
+- omite por defecto los PDF firmados o cifrados y los EPUB con DRM;
+- mantiene PDF/A (declara los esquemas de extensión) y no rompe PDF/UA;
+- relee y valida lo que escribe: TDMRep, invariantes de páginas, diccionario
+  Info (incluido el heredado de actualizaciones incrementales), contenedor
+  EPUB, estabilidad del ISCC y, si están instalados, veraPDF y EPUBCheck;
+- es idempotente: sellar dos veces no duplica nada;
+- deja un reporte JSON por archivo con todo lo que hizo.
 
-- si el PDF no tiene título, el Meta-Code se deriva del nombre del archivo
-  (como en iscc-sdk) y cambia con el sufijo `_TDM`; el Text-Code no;
-- los PDF escaneados sin OCR no tienen Text-Code;
-- el esquema de extensión PDF/A no es el archivo oficial de la PDF
-  Association;
-- los PDF de prueba se generan con pikepdf; faltan fixtures reales de
-  PDF/A, PDF/UA, firmados y con formularios.
+## Qué cubre y qué no (comparación honesta)
 
-- **aviso visible opcional** (desactivado por defecto, `--visible-notice`):
-  página final en PDF o documento final en EPUB con la reserva en lenguaje
-  claro, sin tocar el contenido existente; se rechaza en PDF/A, PDF/UA,
-  firmados y EPUB de maquetación fija (`TDM023`). Ver
-  `docs/aviso-visible.md`.
+| | TDM Seal | Servicios comerciales tipo TDM·AI / registro ISCC |
+|---|---|---|
+| Reserva TDMRep dentro del archivo | Sí (PDF, EPUB) | Según el servicio |
+| Huella ISCC ligada al contenido | Sí, compatible con iscc-sdk | Sí |
+| Declaración en un **registro público** consultable por terceros | No: genera el manifiesto para cargarlo donde se decida | Sí, es su núcleo |
+| Señales del sitio web (`tdmrep.json`, cabeceras, robots.txt) | Sí | Según el servicio |
+| Política de licencia legible por máquinas | Sí (ODRL) | Según el servicio |
+| Sello de tiempo verificable por terceros | No (requiere red; la firma SSH prueba quién, no cuándo) | Normalmente sí |
+| Funciona sin conexión y sin enviar los libros a nadie | Sí | Requiere conexión con el registro |
+| Coste | Gratis, MIT | Licencia comercial |
 
-- **manifiesto de catálogo**: `tdmseal manifest` genera un CSV o JSON con
-  una fila por obra (hashes, ISCC, ISBN, título, reserva, política, AIPREF),
-  para registros ISCC y licencias en bloque; firma opcional con una clave
-  SSH (`--sign-key`).
-
-**Pendiente** (v1.0): pestaña de política en la GUI, `.exe`, instalador y
-guía para editoriales.
+**Lo que ninguna herramienta reemplaza:** el respaldo jurídico de la
+reserva en cada jurisdicción, la gestión colectiva de derechos, la
+negociación y el cobro de licencias, y el seguimiento de quién usa las
+obras. Eso sigue siendo trabajo humano e institucional (editoriales,
+sociedades de gestión como CDR, abogados).
 
 ## Instalación
 
-Requiere Python 3.10+. **Importante:** si el proyecto vive en una carpeta
-sincronizada con Google Drive (como aquí), crea el entorno virtual **fuera**
-de esa carpeta — la sincronización en vivo puede corromper la instalación de
-pip a mitad de escritura. Por ejemplo:
+**Sin Python:** use `TDM-Seal.exe` (carpeta padre del repositorio o `dist/`),
+o el instalador que genera `scripts/installer.iss` con Inno Setup.
+
+**Con Python 3.10+** (en Windows, cree el entorno virtual **fuera** de
+carpetas sincronizadas con Google Drive u OneDrive):
 
 ```bash
-python -m venv "$HOME/.venvs/tdm-seal"
-"$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev]"
-
-# Para usar la GUI, añade el extra "gui" (PySide6), y para el ISCC de
-# contenido el extra "iscc" (pypdfium2):
-"$HOME/.venvs/tdm-seal/Scripts/python" -m pip install -e ".[dev,gui,iscc]"
+python -m venv "%USERPROFILE%\.venvs\tdm-seal"
+"%USERPROFILE%\.venvs\tdm-seal\Scripts\python" -m pip install -e ".[gui,iscc]"
 ```
 
-## GUI de escritorio
+Extras opcionales: `gui` (PySide6), `iscc` (Text-Code de PDF, pypdfium2),
+`iscc-epub` (Text-Code de EPUB, iscc-tika, ~110 MB), `dev` (pruebas).
+Validadores externos opcionales: veraPDF (`verapdf` en el PATH) y EPUBCheck
+(`TDMSEAL_EPUBCHECK_JAR`), ambos requieren Java.
 
-La forma más simple es hacer doble clic en **`TDM-Seal.bat`**: la primera vez
-crea el entorno virtual e instala las dependencias automáticamente; las
-siguientes veces abre la GUI directamente.
+## GUI
 
-También existe **`dist/TDM-Seal.exe`** (y una copia en la carpeta padre,
-junto a la especificación), un ejecutable standalone que no requiere Python
-instalado. Para regenerarlo tras un cambio de código:
+Doble clic en `TDM-Seal.exe` o en `TDM-Seal.bat`. Cuatro pestañas:
 
-```bash
-scripts\build_exe.bat
-```
+1. **Sellar**: datos de la editorial, reserva, archivos PDF/EPUB, ISCC y
+   aviso visible (pide confirmación).
+2. **Política**: condiciones de licencia por finalidad, preferencias de IA y
+   vista previa de la página de la política.
+3. **Sitio web**: archivos para publicar en el servidor.
+4. **Catálogo**: manifiesto CSV/JSON.
 
-La GUI permite: cargar un PDF o una carpeta, auditar automáticamente (PDF/A,
-firma, cifrado, TDM actual), completar los datos de la editorial y la
-política TDM, y aplicar el sello a todo el lote con un botón. Los valores de
-editorial/política pueden guardarse como valores por defecto para no
-reescribirlos cada vez.
-
-## Uso (línea de comandos)
+## Línea de comandos
 
 ```bash
-# Sellar un PDF (reserva por defecto = 1)
-tdmseal seal libro.pdf
-
-# Con política pública
-tdmseal seal libro.pdf --reservation 1 --policy "https://editorial.example.edu/tdm/policy.jsonld"
-
-# Carpeta completa (PDF y EPUB)
-tdmseal seal ./pdf-finales --recursive
-
-# Un EPUB (2 o 3)
-tdmseal seal libro.epub --iscc
-
-# Sellar y además calcular el ISCC y guardarlo en el XMP
+# Sellar (reserva por defecto = 1), con ISCC
 tdmseal seal libro.pdf --iscc
+tdmseal seal ./catalogo --recursive --iscc --policy https://editorial.ejemplo/tdm/policies/1
 
-# Solo calcular el ISCC (sin modificar nada)
-tdmseal iscc libro.pdf
+# Aviso visible opcional (página final en PDF, documento final en EPUB)
+tdmseal seal libro.pdf --visible-notice --publisher-name "Editorial" --publisher-email derechos@editorial.ejemplo
+
+# ISCC sin modificar nada
 tdmseal iscc ./catalogo --recursive --json
 
-# Manifiesto del catálogo (CSV para Excel o JSON), con firma opcional
+# Política de licencia (ODRL + página HTML)
+tdmseal policy build --output-dir ./publicar --publisher-name "Editorial" \
+  --publisher-website https://editorial.ejemplo --publisher-email derechos@editorial.ejemplo \
+  --research consent --non-research compensate
+tdmseal policy check ./publicar/policy.jsonld
+
+# Señales del sitio web
+tdmseal site --base-url https://editorial.ejemplo/ --out ./publicar \
+  --policy https://editorial.ejemplo/tdm/policies/1 --aipref "train-ai=n, ai-use=n, search=y"
+tdmseal site --check ./publicar/.well-known/tdmrep.json
+
+# Manifiesto del catálogo (firma opcional con clave SSH)
 tdmseal manifest ./catalogo --recursive --out catalogo_tdm.csv
 tdmseal manifest ./catalogo --out catalogo_tdm.json --sign-key ~/.ssh/id_ed25519
 
-# Solo auditar, sin modificar
-tdmseal inspect libro.pdf
-
-# Extraer la declaración TDMRep
-tdmseal show libro_TDM.pdf
-
-# Auditar un catálogo completo
+# Auditar sin modificar
+tdmseal inspect libro_TDM.pdf
+tdmseal show libro_TDM.epub
 tdmseal audit ./catalogo --recursive
 
-# Ver / guardar valores por defecto (editorial, reserva, política)
+# Valores por defecto (editorial, reserva, política, AIPREF)
 tdmseal config show
-tdmseal config set --publisher-name "Editorial Universidad Ejemplo" --publisher-acronym EUE
-
-# Señales del sitio web (tdmrep.json, cabeceras, robots.txt, metaetiquetas)
-tdmseal site --base-url https://editorial.example.edu/ --out ./publicar \
-  --policy https://editorial.example.edu/tdm/policies/1 \
-  --aipref "train-ai=n, ai-use=n, search=y"
-tdmseal site --check ./publicar/.well-known/tdmrep.json
-
-# Generar policy.jsonld, policy.html y tdmrep.json para el sitio web
-tdmseal policy build --output-dir ./publicar \
-  --publisher-name "Editorial Universidad Ejemplo" \
-  --publisher-website https://editorial.example.edu \
-  --publisher-email derechos@example.edu \
-  --research consent --non-research compensate
-tdmseal policy check ./publicar/policy.jsonld
+tdmseal config set --publisher-name "Editorial" --aipref "train-ai=n, ai-use=n, search=y"
 ```
 
-Cada `seal` genera `archivo_TDM.pdf` junto al original y
-`archivo_TDM.pdf.report.json` con la auditoría completa (hashes, validaciones,
-avisos).
+Códigos de omisión o error frecuentes: `TDM020` cifrado, `TDM021` firmado,
+`TDM022` EPUB con DRM, `TDM023` aviso visible no aplicable, `TDM050` la
+salida ya existe.
+
+## Limitaciones conocidas
+
+- AIPREF es un borrador del IETF y no define cómo incrustarlo en archivos:
+  va en el sitio web y en los reportes.
+- En un PDF sin título, el Meta-Code se deriva del nombre del archivo (como
+  en iscc-sdk) y cambia con el sufijo `_TDM`; el Text-Code no. Los PDF
+  escaneados sin OCR no tienen Text-Code.
+- El esquema de extensión PDF/A de TDMRep es una redacción propia (el
+  archivo oficial de la PDF Association no se pudo descargar).
+- La firma del manifiesto prueba quién firmó, no cuándo.
+- El texto del aviso visible está pendiente de revisión de estilo
+  (`docs/aviso-visible.md`).
 
 ## Desarrollo
 
 ```bash
-set TDMSEAL_PY=C:\ruta\a\tu\venv\Scripts\python.exe
-check.bat
+set TDMSEAL_PY=%USERPROFILE%\.venvs\tdm-seal\Scripts\python.exe
+check.bat                  # ruff + formato + pytest
+scripts\build_exe.bat      # TDM-Seal.exe (compila fuera de Drive)
 ```
 
-Corre `ruff check`, `ruff format --check` y la suite de `pytest`. Los
-fixtures de prueba se generan programáticamente con pikepdf (no se versionan
-PDF binarios).
+Las pruebas generan sus PDF y EPUB por programa; no se versionan binarios.
+Fuentes de los estándares consultados: `resources/SOURCES.md`.
 
-## Principios de diseño (manifiesto, sección 37 de la especificación)
+## Principios
 
-1. No tocar el contenido visible.
+1. No tocar el contenido visible (salvo el aviso opcional, que solo añade).
 2. No borrar metadatos que no pertenezcan a TDM Seal.
 3. No romper PDF/A ni PDF/UA.
-4. No modificar archivos firmados por defecto.
+4. No modificar archivos firmados ni con DRM.
 5. No subir archivos a servicios externos.
 6. No afirmar que TDMRep bloquea técnicamente la IA.
 7. Registrar exactamente qué se modificó.
 8. Ser idempotente.
 9. Permitir verificar la declaración sin depender del propio programa.
+
+---
+
+## Summary in English
+
+**TDM Seal** is a free, open-source (MIT), offline tool that lets publishers
+reserve their text and data mining rights, including AI training, over PDF
+and EPUB catalogues through every available channel: W3C TDMRep metadata
+inside each file (XMP / OPF), an ISO 24138 ISCC content fingerprint that
+survives sealing (compatible with iscc-sdk), site-level signals
+(`/.well-known/tdmrep.json`, HTTP headers, robots.txt, IETF AIPREF
+`Content-Usage`), an ODRL licensing offer with a human-readable policy page,
+an optional visible notice, and a signed catalogue manifest for ISCC
+registries and collective licensing. It never overwrites originals, skips
+signed, encrypted or DRM-protected files, preserves PDF/A, and validates
+everything it writes. It does not replace legal advice, collective rights
+management or licence negotiation.

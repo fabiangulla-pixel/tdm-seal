@@ -141,6 +141,66 @@ def test_visible_notice_is_off_by_default_and_needs_confirmation(qtbot, monkeypa
     assert window.chk_notice.isChecked()
 
 
+def test_gui_has_four_tabs(qtbot):
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    names = [window.tabs.tabText(i) for i in range(window.tabs.count())]
+    assert names == ["Sellar", "Política", "Sitio web", "Catálogo"]
+
+
+def test_aipref_defaults_and_policy_preview(qtbot):
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    assert window.current_aipref().serialize() == "train-ai=n, ai-use=n, search=y"
+
+    window._refresh_policy_preview()
+    assert "Aún no se puede generar" in window.policy_preview.toPlainText()
+
+    window.publisher_name_edit.setText("Editorial Universidad Ejemplo")
+    window.publisher_website_edit.setText("https://editorial.example.edu")
+    window.publisher_email_edit.setText("derechos@editorial.example.edu")
+    window.tabs.setCurrentIndex(1)  # abrir la pestaña Política refresca la vista previa
+    text = window.policy_preview.toPlainText()
+    assert "invitación a pedir licencia" in text
+    assert "compensación económica" in text  # otros fines, por defecto
+
+
+def test_aipref_undeclared_category_is_omitted(qtbot):
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window.aipref_combos["search"].setCurrentIndex(2)  # sin declarar
+
+    assert window.current_aipref().serialize() == "train-ai=n, ai-use=n"
+
+
+def test_build_site_writes_files(qtbot, monkeypatch, tmp_path):
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(tmp_path))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window.publisher_website_edit.setText("https://editorial.example.edu")
+
+    window._build_site()
+
+    assert (tmp_path / ".well-known" / "tdmrep.json").exists()
+    assert (tmp_path / "servidor" / "nginx.conf").exists()
+    assert '"tdm-reservation": 1' in window.site_output.toPlainText()
+
+
+def test_build_manifest_from_gui(qtbot, monkeypatch, tmp_path, make_text_pdf):
+    make_text_pdf("a.pdf")
+    out = tmp_path / "catalogo.json"
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(tmp_path))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **kw: (str(out), ""))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window.chk_manifest_iscc.setChecked(False)
+
+    window._build_manifest()
+    qtbot.waitUntil(lambda: "Manifiesto generado" in window.status_label.text(), timeout=10000)
+
+    assert out.exists()
+
+
 def test_iscc_unchecked_leaves_column_empty(qtbot, make_text_pdf):
     window = gui_module.MainWindow()
     qtbot.addWidget(window)

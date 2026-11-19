@@ -6,7 +6,7 @@
 ; Compilar con: ISCC.exe scripts\installer.iss
 
 #define MyAppName "TDM Seal"
-#define MyAppVersion "0.2.0"
+#define MyAppVersion "1.0.0"
 #define MyAppPublisher "TDM Seal"
 #define MyAppExeName "TDM-Seal.exe"
 
@@ -34,6 +34,10 @@ Name: "desktopicon"; Description: "Crear un acceso directo en el Escritorio"; Gr
 
 [Files]
 Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\docs\guia-10-minutos.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\aviso-visible.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\docs\xmp-namespace-iscc.md"; DestDir: "{app}\docs"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

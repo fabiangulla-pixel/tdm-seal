@@ -60,7 +60,20 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v0.7.0, 19-nov-2026)
+## Estado (v1.0.0, 19-nov-2026)
+
+Hoja de ruta v0.5–v1.0 completa (ISCC, EPUB, sitio + AIPREF, ODRL, aviso
+visible, manifiesto, GUI en pestañas, .exe). Pendientes reales: revisión de
+estilo del texto del aviso (`notice.py`), probar con veraPDF/EPUBCheck reales
+(no hay Java en este equipo), compilar el instalador (Inno Setup no está
+instalado) y fixtures reales de PDF/A, PDF/UA y firmados.
+
+GUI: `gui.py` en pestañas con hoja de estilos `STYLE`; el usuario rechaza el
+aspecto nativo sin estilizar. Para revisarla, capturas offscreen con
+`QT_QPA_PLATFORM=offscreen` y `QT_QPA_FONTDIR=C:\Windows\Fonts` (sin esta
+variable el texto sale como cuadritos).
+
+## Notas de la v0.7.0
 
 `site.py` (`tdmseal site`) y `aipref.py`. AIPREF es un borrador del IETF:
 `CATEGORIES` está fijado a vocab-08 y `test_categories_match_vocab_08` falla

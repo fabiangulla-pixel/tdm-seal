@@ -1,14 +1,14 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "tdm-seal"
-version = "0.10.0"
-description = "Sellado declarativo de derechos TDM (TDMRep) para PDF editoriales"
+version = "1.0.0"
+description = "Reserva de derechos TDM (TDMRep, ISCC, ODRL, AIPREF) para PDF y EPUB editoriales"
 readme = "README.md"
 requires-python = ">=3.10"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = [
     "pikepdf>=9.0.0",
     "lxml>=5.0.0",

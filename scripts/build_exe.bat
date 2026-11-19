@@ -13,7 +13,7 @@ set BUILD_ROOT=%TEMP%\tdm-seal-build
 
 if not exist "%VENV_DIR%\Scripts\python.exe" (
     echo No se encontro el entorno virtual en %VENV_DIR%
-    echo Ejecuta TDM-Seal.bat una vez, o crea el venv manualmente (ver README.md).
+    echo Ejecuta TDM-Seal.bat una vez, o crea el venv manualmente ^(ver README.md^).
     pause
     exit /b 1
 )
