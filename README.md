@@ -94,8 +94,13 @@ Implementado y con pruebas automatizadas:
   firmados y EPUB de maquetación fija (`TDM023`). Ver
   `docs/aviso-visible.md`.
 
-**Pendiente** (hoja de ruta v0.10–v1.0): manifiesto de catálogo y
-empaquetado 1.0.
+- **manifiesto de catálogo**: `tdmseal manifest` genera un CSV o JSON con
+  una fila por obra (hashes, ISCC, ISBN, título, reserva, política, AIPREF),
+  para registros ISCC y licencias en bloque; firma opcional con una clave
+  SSH (`--sign-key`).
+
+**Pendiente** (v1.0): pestaña de política en la GUI, `.exe`, instalador y
+guía para editoriales.
 
 ## Instalación
 
@@ -154,6 +159,10 @@ tdmseal seal libro.pdf --iscc
 # Solo calcular el ISCC (sin modificar nada)
 tdmseal iscc libro.pdf
 tdmseal iscc ./catalogo --recursive --json
+
+# Manifiesto del catálogo (CSV para Excel o JSON), con firma opcional
+tdmseal manifest ./catalogo --recursive --out catalogo_tdm.csv
+tdmseal manifest ./catalogo --out catalogo_tdm.json --sign-key ~/.ssh/id_ed25519
 
 # Solo auditar, sin modificar
 tdmseal inspect libro.pdf

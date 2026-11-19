@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from tdmseal import __version__
@@ -81,7 +81,8 @@ def build_report(result: SealResult, publisher: PublisherInfo | None = None) -> 
     return {
         "tool": "TDM Seal",
         "tool_version": __version__,
-        "timestamp_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        # timezone.utc y no datetime.UTC: el proyecto admite Python 3.10.
+        "timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),  # noqa: UP017
         "publisher": _publisher_to_dict(publisher),
         "status": result.status,
         "operation": result.operation,

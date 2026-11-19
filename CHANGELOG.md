@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.10.0] - 2026-11-19
+
+### Añadido
+
+- **`tdmseal manifest CARPETA --out catalogo_tdm.csv|.json`**
+  (`tdmseal/manifest.py`): una fila por obra con archivo, formato, título,
+  ISBN, SHA-256, tamaño, ISCC completo y sus unidades, ISCC declarado,
+  reserva TDM, política, preferencias AIPREF, fecha y estado. CSV en UTF-8
+  con BOM (Excel en Windows); JSON con datos de la editorial. Una obra
+  ilegible se marca con error y no detiene el catálogo. `--no-iscc` para ir
+  más rápido.
+- ISBN tomado **solo de los metadatos** (XMP: `prism:isbn`, `dc:identifier`,
+  `/ISBN` del Info; OPF: `dc:identifier`) y validado: dígito de control,
+  prefijo 978/979 en ISBN-13 y rechazo de rellenos como `0000000000000`
+  (que pasan el dígito de control y aparecieron en EPUB reales).
+- **Firma opcional** del manifiesto con `--sign-key` (`ssh-keygen -Y sign`,
+  incluido en Windows; sin dependencias nuevas): crea `ARCHIVO.sig` e indica
+  el comando de verificación. Prueba quién firmó; la fecha es la declarada
+  (un sello de tiempo RFC 3161 requeriría red y no se hace).
+
+### Corregido
+
+- `datetime.UTC` (solo existe desde Python 3.11) en el reporte JSON: el
+  proyecto admite Python 3.10. Ahora se usa `timezone.utc`.
+
 ## [0.9.0] - 2026-11-19
 
 ### Añadido

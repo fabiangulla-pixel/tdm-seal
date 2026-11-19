@@ -19,6 +19,7 @@ from tdmseal.iscc.content import (
     compute_content_iscc,
     content_extra_available,
 )
+from tdmseal.manifest import build_manifest, sign_file, verify_command
 from tdmseal.models import PublisherInfo, TDMPolicy
 from tdmseal.notice import notice_from_publisher
 from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
@@ -260,6 +261,58 @@ def audit(target: Path, recursive: bool) -> None:
         click.echo(
             f"{pdf_path.name}\t{info.iscc}\t{info.tdm.reservation}\t{policy}\t{pdfa}\t{estado}"
         )
+
+
+@main.command()
+@click.argument("target", type=click.Path(exists=True, path_type=Path))
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(path_type=Path),
+    required=True,
+    help="Archivo de salida: .csv (Excel) o .json.",
+)
+@click.option("--recursive", is_flag=True, help="Incluir subcarpetas.")
+@click.option("--no-iscc", is_flag=True, help="No calcular el ISCC de contenido (más rápido).")
+@click.option(
+    "--sign-key",
+    type=click.Path(exists=True, path_type=Path),
+    default=None,
+    help="Clave SSH privada para firmar el manifiesto (opcional; crea ARCHIVO.sig).",
+)
+def manifest(
+    target: Path, out_path: Path, recursive: bool, no_iscc: bool, sign_key: Path | None
+) -> None:
+    """Genera el manifiesto del catálogo: una fila por obra con hashes, ISCC,
+    ISBN, título, reserva TDM, política y preferencias AIPREF. Pensado para
+    registros ISCC y licencias en bloque. No se sube nada a la red.
+    """
+    defaults = load_defaults()
+    docs = iter_documents(target, recursive)
+    if not docs:
+        click.echo("No se encontraron PDF ni EPUB para procesar.")
+        return
+    publisher = None if defaults.publisher.is_empty() else _publisher_to_dict(defaults)["publisher"]
+    result = build_manifest(
+        docs,
+        base_dir=target if target.is_dir() else target.parent,
+        with_iscc=not no_iscc,
+        aipref=defaults.aipref,
+        publisher=publisher,
+    )
+    written = result.write(out_path)
+    errors = sum(1 for row in result.rows if str(row.get("estado", "")).startswith("error"))
+    click.echo(f"[OK] {len(result.rows)} obra(s) -> {written}")
+    if errors:
+        click.echo(f"[AVISO] {errors} obra(s) con error; ver la columna 'estado'.")
+    if sign_key is not None:
+        try:
+            sig = sign_file(written, sign_key)
+        except RuntimeError as exc:
+            click.echo(f"Error: {exc}")
+            sys.exit(1)
+        click.echo(f"[OK] firma -> {sig}")
+        click.echo(f"Para verificarla: {verify_command(written)}")
 
 
 @main.group()

@@ -227,7 +227,7 @@ def build_epub(
         f'<package xmlns="http://www.idpf.org/2007/opf" version="{version}.0" '
         f'unique-identifier="uid"{prefix_attr}>\n'
         '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n'
-        '    <dc:identifier id="uid">urn:isbn:9789580000000</dc:identifier>\n'
+        '    <dc:identifier id="uid">urn:isbn:9789580000006</dc:identifier>\n'
         f"    <dc:title>{title}</dc:title>\n"
         "    <dc:language>es</dc:language>\n"
         f"{modified}{extra_meta}"
@@ -247,7 +247,7 @@ def build_epub(
     ncx = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">\n'
-        '<head><meta name="dtb:uid" content="urn:isbn:9789580000000"/></head>\n'
+        '<head><meta name="dtb:uid" content="urn:isbn:9789580000006"/></head>\n'
         f"<docTitle><text>{title}</text></docTitle>\n<navMap>"
         + "".join(
             f'<navPoint id="n{i}" playOrder="{i + 1}"><navLabel><text>Cap. {i}</text>'
