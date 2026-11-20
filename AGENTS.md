@@ -60,7 +60,7 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v1.1.0, 20-nov-2026)
+## Estado (v1.2.0, 20-nov-2026)
 
 Hoja de ruta v0.5–v1.0 completa y validada con herramientas reales.
 Herramientas instaladas en `%LOCALAPPDATA%\TDMSeal\tools` (Java 21,
@@ -82,8 +82,15 @@ No usar Word por COM para generar PDF/A de prueba: se colgó sin ventana (y
 coincidió con una caída de Google Drive). Ghostscript con `-dPDFA=2` y
 `--permit-file-read` sobre `iccprofiles/` genera PDF/A válidos.
 
-Pendientes: revisión de estilo del aviso (`notice.py`); PDF/UA y firmados
-reales.
+PDF/UA real: `_build_pdfua` en `test_real_tools.py` (Ghostscript con
+`NeverEmbed []` para incrustar Helvetica + árbol de estructura con pikepdf);
+veraPDF `--flavour ua1` lo da por conforme. Firmas reales: pyHanko en un
+venv aparte (`%USERPROFILE%\.venvs\pyhanko-ref`, o `TDMSEAL_PYHANKO_PY`),
+invocado desde `tests/integration/pyhanko_helper.py`; NO es dependencia.
+`--force-signed` rompe la firma (reescritura completa); un modo incremental
+que la conservara sería una mejora posible, no hecha.
+
+Pendiente: revisión de estilo del aviso (`notice.py`).
 
 GUI: `gui.py` en pestañas con hoja de estilos `STYLE`; el usuario rechaza el
 aspecto nativo sin estilizar. Para revisarla, capturas offscreen con
@@ -100,8 +107,8 @@ actualizar `resources/SOURCES.md`. Las pruebas de CLI deben parchear
 
 EPUB 2/3 en `epub/` (OPF, contenedor, DRM, EPUBCheck opcional); CLI y GUI
 pasan por `documents.py` (`inspect_document`, `seal_document`). Al tocar un
-EPUB solo cambia el OPF; `compare_container` lo exige. No hay Java en este
-equipo: EPUBCheck y veraPDF solo se prueban con dobles.
+EPUB solo cambia el OPF; `compare_container` lo exige. (Desde la v1.1.0 hay
+Java, EPUBCheck y veraPDF reales: ver "Estado".)
 
 
 Hecho y probado: PDF/A-1/2/3 (`xmp/pdfa_extension.py`), veraPDF opcional
@@ -124,16 +131,16 @@ Para correr `check.bat` desde PowerShell usar
 cmd no lo encontró (arrancaba en `%USERPROFILE%`, visto el 19-nov-2026).
 `check.bat` hace `cd /d "%~dp0"` para no correr ruff fuera del repo.
 
-veraPDF ya no está instalado en este equipo (`C:\build_rf\tools\` no
-existe tras la migración al MSI): sus pruebas corren solo con mocks.
+veraPDF vive ahora en `%LOCALAPPDATA%\TDMSeal\tools\verapdf` (el antiguo
+`C:\build_rf\tools\` ya no existe tras la migración al MSI).
 
 ## Qué falta
 
 - Hoja de ruta v0.5–v1.0 (ISCC de contenido, EPUB, `tdmseal site`, ODRL
   completo, AIPREF, aviso visible, manifiesto, 1.0): ver el prompt de la
   sesión del 19-nov-2026 y las decisiones que se tomen en cada fase.
-- Fixtures de integración con PDF/A-1/2/3/4, PDF/UA, firmados, cifrados,
-  con adjuntos y formularios reales (hoy los tests usan PDFs mínimos
-  generados con pikepdf; faltan los fixtures reales de la sección 19).
+- Fixtures reales que aún faltan: PDF/A-4 (Ghostscript no lo genera),
+  cifrados, con adjuntos y formularios (PDF/A-1b/2b/3b, PDF/UA-1 y firmados
+  ya se prueban con archivos reales: ver "Estado").
 - Reemplazar el esquema de extensión PDF/A redactado por el oficial de la
   PDF Association cuando alguien lo descargue a mano.

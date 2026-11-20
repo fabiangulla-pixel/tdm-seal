@@ -10,7 +10,7 @@ todas las vías que hoy existen, y genera la política con la que invita a
 licenciar. **No es DRM ni un bloqueo técnico:** es una señal declarativa,
 legible por máquinas y por personas.
 
-**Versión 1.1.0.** Guía rápida para editoriales:
+**Versión 1.2.0.** Guía rápida para editoriales:
 [Cómo reservar su catálogo frente al entrenamiento de IA en 10 minutos](docs/guia-10-minutos.md).
 
 ## Qué hace
@@ -72,7 +72,8 @@ Extras opcionales: `gui` (PySide6), `iscc` (Text-Code de PDF, pypdfium2),
 `iscc-epub` (Text-Code de EPUB, iscc-tika, ~110 MB), `dev` (pruebas).
 
 **Validadores (opcionales, recomendados):** veraPDF comprueba que los
-PDF/A sigan conformes tras sellar y EPUBCheck que los EPUB sigan válidos.
+PDF/A y los PDF/UA sigan conformes tras sellar y EPUBCheck que los EPUB
+sigan válidos.
 Para instalarlos con Java, sin permisos de administrador:
 
 ```bash
@@ -139,6 +140,11 @@ sellado (existe la salida; se omite sin sobrescribir). Al recorrer una
 carpeta se ignoran los `*_TDM.*`, así que se puede volver a sellar la misma
 carpeta tras añadir libros nuevos.
 
+**PDF firmados:** selle *antes* de firmar. `--force-signed` sella igual,
+pero la firma de la copia sellada deja de ser válida (comprobado con firmas
+reales) y el programa lo advierte; el original no se toca. Un campo de firma
+vacío (para firmar después) no impide sellar.
+
 ## Limitaciones conocidas
 
 - AIPREF es un borrador del IETF y no define cómo incrustarlo en archivos:
@@ -148,7 +154,8 @@ carpeta tras añadir libros nuevos.
   escaneados sin OCR no tienen Text-Code.
 - El esquema de extensión PDF/A de TDMRep es una redacción propia (el
   archivo oficial de la PDF Association no se pudo descargar); veraPDF
-  confirma que PDF/A-1b y PDF/A-2b reales siguen conformes tras sellar.
+  confirma que PDF/A-1b, 2b y 3b y PDF/UA-1 reales siguen conformes tras
+  sellar.
 - La firma del manifiesto prueba quién firmó, no cuándo.
 - El texto del aviso visible está pendiente de revisión de estilo
   (`docs/aviso-visible.md`).

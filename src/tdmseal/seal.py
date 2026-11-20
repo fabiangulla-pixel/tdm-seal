@@ -38,6 +38,12 @@ from tdmseal.xmp.pdfa_extension import (
 from tdmseal.xmp.serializer import serialize_xmp
 from tdmseal.xmp.tdmrep import write_tdmrep
 
+SIGNATURE_INVALIDATED_WARNING = (
+    "La firma digital del original NO es válida en la copia sellada (se forzó con "
+    "--force-signed). El original no se tocó. Vuelva a firmar la copia sellada o, mejor, "
+    "selle el documento antes de firmarlo."
+)
+
 
 def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
     """Sella un único PDF. Nunca lanza excepción: los fallos se reflejan en el resultado."""
@@ -104,6 +110,12 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
     warnings: list[str] = []
     validations: dict = {}
     notice_added = False
+
+    if before.signed:
+        # Solo se llega aquí con --force-signed. Comprobado con firmas reales de
+        # pyHanko: el PDF sellado se reescribe entero y la firma deja de validar.
+        validations["signature_preserved"] = "FAIL"
+        warnings.append(SIGNATURE_INVALIDATED_WARNING)
 
     iscc_input = None
     if config.compute_iscc:

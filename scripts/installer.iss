@@ -6,7 +6,7 @@
 ; Compilar con: ISCC.exe scripts\installer.iss
 
 #define MyAppName "TDM Seal"
-#define MyAppVersion "1.1.0"
+#define MyAppVersion "1.2.0"
 #define MyAppPublisher "TDM Seal"
 #define MyAppExeName "TDM-Seal.exe"
 

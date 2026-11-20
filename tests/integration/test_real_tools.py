@@ -57,7 +57,7 @@ def test_sealed_epub_passes_epubcheck(make_epub, version, with_notice):
     assert epubcheck_errors(result.output_path, cmd) == set()
 
 
-@pytest.mark.parametrize("part", [1, 2])
+@pytest.mark.parametrize("part", [1, 2, 3])
 def test_sealed_real_pdfa_stays_compliant(make_text_pdf, tmp_path, part):
     gs = _ghostscript()
     icc = (gs / "iccprofiles" / "srgb.icc").as_posix()
@@ -134,9 +134,7 @@ def _build_pdfua(gs: Path, src: Path, out: Path) -> Path:
     with pikepdf.open(base) as pdf:
         struct_root = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.StructTreeRoot))
         doc = pdf.make_indirect(
-            pikepdf.Dictionary(
-                Type=pikepdf.Name.StructElem, S=pikepdf.Name.Document, P=struct_root
-            )
+            pikepdf.Dictionary(Type=pikepdf.Name.StructElem, S=pikepdf.Name.Document, P=struct_root)
         )
         kids, nums = pikepdf.Array(), pikepdf.Array()
         for i, page in enumerate(pdf.pages):

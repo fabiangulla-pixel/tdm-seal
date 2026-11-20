@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.2.0] - 2026-11-20
+
+PDF/UA y PDF firmados probados con archivos reales, no con dobles.
+
+### Añadido
+
+- **Validación PDF/UA**: si el original declara `pdfuaid:part`, veraPDF
+  valida original y sellado con el perfil `ua1`/`ua2` (validación
+  `verapdf_ua`) y solo falla ante incumplimientos nuevos. Prueba real con un
+  PDF/UA-1 (Ghostscript + etiquetado con pikepdf): sigue conforme tras
+  sellar con ISCC.
+- PDF/A-3b real (Ghostscript) añadido a las pruebas de veraPDF: sigue
+  conforme tras sellar.
+- Pruebas con **firmas criptográficas reales** de pyHanko (de aprobación y
+  de certificación), en un entorno aparte (`~\.venvs\pyhanko-ref`);
+  pyHanko no es dependencia del proyecto.
+
+### Corregido
+
+- **`--force-signed` invalidaba la firma sin decirlo**: el resultado salía
+  `[OK]`. pyHanko confirma que la firma de la copia sellada ya no valida;
+  ahora se advierte y se registra `signature_preserved=FAIL` en el reporte.
+- **La CLI no mostraba los avisos de los sellados correctos** (p. ej. "el
+  original ya incumplía N reglas PDF/A"). Ahora los imprime bajo cada `[OK]`.
+- Detector de firmas: ahora reconoce `/FT /Sig` heredado del campo padre y
+  las firmas de `/Perms` (`/DocMDP` de certificación, `/UR3` de derechos de
+  uso), y no se cuelga con `/Kids` cíclicos.
+
 ## [1.1.0] - 2026-11-20
 
 Ronda de uso real: probar el programa como lo usaría una editorial, con las

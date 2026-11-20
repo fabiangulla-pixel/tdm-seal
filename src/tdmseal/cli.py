@@ -143,6 +143,8 @@ def seal(
             click.echo(f"[OK] {pdf_path} -> {result.output_path}")
             if result.iscc_input is not None:
                 click.echo(f"     ISCC original: {result.iscc_input.iscc}")
+            for warning in result.warnings:
+                click.echo(f"     Aviso: {warning}")
         elif result.status == "skipped":
             skipped += 1
             click.echo(f"[OMITIDO {result.reason_code}] {pdf_path}: {'; '.join(result.errors)}")
