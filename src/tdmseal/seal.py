@@ -29,7 +29,7 @@ from tdmseal.pdf.integrity import compare_docinfo, compare_non_metadata_invarian
 from tdmseal.pdf.writer import create_output_path, save_pdf, write_document_xmp_bytes
 from tdmseal.validation.qpdf_validator import qpdf_check
 from tdmseal.validation.tdmrep_validator import verify_tdmrep_by_rereading
-from tdmseal.validation.verapdf_validator import run_verapdf
+from tdmseal.validation.verapdf_validator import pdfua_flavour, run_verapdf
 from tdmseal.xmp.parser import find_rdf_root, parse_xmp
 from tdmseal.xmp.pdfa_extension import (
     merge_iscc_extension_schema,
@@ -182,6 +182,12 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
         verapdf_result = run_verapdf(output_path, input_path)
         validations["verapdf"] = verapdf_result["status"]
         warnings.extend(verapdf_result["issues"])
+
+    ua_flavour = pdfua_flavour(before.pdfua_part)
+    if ua_flavour and config.run_verapdf:
+        ua_result = run_verapdf(output_path, input_path, flavour=ua_flavour)
+        validations["verapdf_ua"] = ua_result["status"]
+        warnings.extend(ua_result["issues"])
 
     integrity_result = compare_non_metadata_invariants(
         input_path, output_path, added_pages=1 if notice_added else 0

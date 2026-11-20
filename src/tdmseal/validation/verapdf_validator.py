@@ -58,9 +58,12 @@ def parse_verapdf_json(text: str) -> tuple[bool | None, set[str]]:
     return compliant, failed
 
 
-def _validate(command: list[str], path: Path) -> tuple[bool | None, set[str]]:
+def _validate(
+    command: list[str], path: Path, flavour: str | None = None
+) -> tuple[bool | None, set[str]]:
+    flavour_args = ["--flavour", flavour] if flavour else []
     proc = subprocess.run(
-        [*command, "--format", "json", str(path)],
+        [*command, *flavour_args, "--format", "json", str(path)],
         capture_output=True,
         text=True,
         encoding="utf-8",
@@ -76,14 +79,27 @@ def _validate(command: list[str], path: Path) -> tuple[bool | None, set[str]]:
     return parse_verapdf_json(proc.stdout[start:])
 
 
-def run_verapdf(output_path: Path, input_path: Path | None = None) -> dict:
+def pdfua_flavour(part: int | None) -> str | None:
+    """Perfil de veraPDF para la parte de PDF/UA declarada (`pdfuaid:part`)."""
+    return {1: "ua1", 2: "ua2"}.get(part) if part is not None else None
+
+
+def run_verapdf(
+    output_path: Path, input_path: Path | None = None, *, flavour: str | None = None
+) -> dict:
+    """Valida el sellado (y el original, si se da) con veraPDF.
+
+    Sin `flavour`, veraPDF elige el perfil PDF/A según el `pdfaid` del XMP.
+    Con `flavour="ua1"`/`"ua2"` valida PDF/UA-1/2.
+    """
+    label = "PDF/UA" if flavour and flavour.startswith("ua") else "PDF/A"
     command = tools.find_verapdf()
     if command is None:
-        return {"status": "SKIPPED", "issues": [NOT_INSTALLED]}
+        return {"status": "SKIPPED", "issues": [NOT_INSTALLED.replace("PDF/A", label)]}
     try:
-        after_ok, after_failed = _validate(command, output_path)
+        after_ok, after_failed = _validate(command, output_path, flavour)
         before_ok, before_failed = (
-            _validate(command, input_path) if input_path is not None else (None, set())
+            _validate(command, input_path, flavour) if input_path is not None else (None, set())
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         return {"status": "FAIL", "issues": [f"No se pudo ejecutar veraPDF: {exc}"]}
@@ -99,13 +115,13 @@ def run_verapdf(output_path: Path, input_path: Path | None = None) -> dict:
         return {
             "status": "PASS",
             "issues": [
-                f"veraPDF: el original ya incumplía {len(before_failed)} regla(s) PDF/A; "
+                f"veraPDF: el original ya incumplía {len(before_failed)} regla(s) {label}; "
                 "el sellado no añadió ninguna."
             ],
         }
     detail = new or sorted(after_failed)
     return {
         "status": "FAIL",
-        "issues": ["veraPDF reporta el PDF/A como no conforme"]
+        "issues": [f"veraPDF reporta el {label} como no conforme"]
         + [f"veraPDF, regla incumplida: {r}" for r in detail[:10]],
     }

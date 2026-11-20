@@ -77,6 +77,32 @@ def test_preexisting_violations_do_not_fail(monkeypatch, tmp_path):
     assert "ya incumplía 1" in result["issues"][0]
 
 
+def test_pdfua_flavour_is_passed_and_named(monkeypatch, tmp_path):
+    seen: list[list[str]] = []
+    monkeypatch.setattr(tools, "find_verapdf", lambda: ["verapdf"])
+
+    class Proc:
+        stdout, stderr = _report(False, ["7.21.4.1"]), ""
+
+    def fake_run(args, **kw):
+        seen.append(args)
+        return Proc()
+
+    monkeypatch.setattr(verapdf_validator.subprocess, "run", fake_run)
+
+    result = verapdf_validator.run_verapdf(tmp_path / "out.pdf", flavour="ua1")
+
+    assert seen[0][1:3] == ["--flavour", "ua1"]
+    assert result["status"] == "FAIL"
+    assert "PDF/UA" in result["issues"][0]
+
+
+def test_pdfua_flavour_mapping():
+    assert verapdf_validator.pdfua_flavour(1) == "ua1"
+    assert verapdf_validator.pdfua_flavour(2) == "ua2"
+    assert verapdf_validator.pdfua_flavour(None) is None
+
+
 def test_fail_on_unparseable_output(monkeypatch, tmp_path):
     _fake(monkeypatch, {"out.pdf": "no es json"})
     assert verapdf_validator.run_verapdf(tmp_path / "out.pdf")["status"] == "FAIL"

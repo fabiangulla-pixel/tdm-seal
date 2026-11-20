@@ -90,3 +90,105 @@ def test_sealed_real_pdfa_stays_compliant(make_text_pdf, tmp_path, part):
 
     assert result.status == "success", result.warnings
     assert result.validations["verapdf"] == "PASS"
+
+
+UA_XMP = """<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+ <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"
+     xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/">
+   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">Libro accesible</rdf:li></rdf:Alt></dc:title>
+   <pdfuaid:part>1</pdfuaid:part>
+  </rdf:Description>
+ </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>""".encode()
+
+
+def _build_pdfua(gs: Path, src: Path, out: Path) -> Path:
+    """PDF/UA-1 real: Ghostscript incrusta las fuentes y pikepdf etiqueta el contenido.
+
+    Cada página queda envuelta en un único párrafo (`/P` con MCID 0) colgado de
+    un `Document` en el árbol de estructura; más Lang, MarkInfo, título
+    mostrado y `pdfuaid:part=1`. veraPDF lo da por conforme con `--flavour ua1`.
+    """
+    import pikepdf
+
+    base = out.with_name("base_" + out.name)
+    subprocess.run(
+        [
+            str(gs / "bin" / "gswin64c.exe"),
+            "-dBATCH",
+            "-dNOPAUSE",
+            "-dQUIET",
+            "-sDEVICE=pdfwrite",
+            f"-sOutputFile={base}",
+            "-c",
+            "<</NeverEmbed [ ]>> setdistillerparams",  # incrustar también Helvetica
+            "-f",
+            str(src),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    with pikepdf.open(base) as pdf:
+        struct_root = pdf.make_indirect(pikepdf.Dictionary(Type=pikepdf.Name.StructTreeRoot))
+        doc = pdf.make_indirect(
+            pikepdf.Dictionary(
+                Type=pikepdf.Name.StructElem, S=pikepdf.Name.Document, P=struct_root
+            )
+        )
+        kids, nums = pikepdf.Array(), pikepdf.Array()
+        for i, page in enumerate(pdf.pages):
+            contents = page.obj.Contents
+            streams = contents if isinstance(contents, pikepdf.Array) else [contents]
+            data = b"".join(s.read_bytes() for s in streams)
+            page.obj.Contents = pdf.make_stream(b"/P <</MCID 0>> BDC\n" + data + b"\nEMC\n")
+            page.obj.StructParents = i
+            para = pdf.make_indirect(
+                pikepdf.Dictionary(
+                    Type=pikepdf.Name.StructElem, S=pikepdf.Name.P, P=doc, Pg=page.obj, K=0
+                )
+            )
+            kids.append(para)
+            nums.extend([i, pikepdf.Array([para])])
+        doc.K = kids
+        struct_root.K = doc
+        struct_root.ParentTree = pdf.make_indirect(pikepdf.Dictionary(Nums=nums))
+        struct_root.ParentTreeNextKey = len(pdf.pages)
+        pdf.Root.StructTreeRoot = struct_root
+        pdf.Root.MarkInfo = pikepdf.Dictionary(Marked=True)
+        pdf.Root.Lang = pikepdf.String("es-CO")
+        pdf.Root.ViewerPreferences = pikepdf.Dictionary(DisplayDocTitle=True)
+        pdf.docinfo["/Title"] = "Libro accesible"
+        meta = pikepdf.Stream(pdf, UA_XMP)
+        meta.Type, meta.Subtype = pikepdf.Name.Metadata, pikepdf.Name.XML
+        pdf.Root.Metadata = meta
+        pdf.save(out)
+    return out
+
+
+def test_sealed_real_pdfua_stays_compliant(make_text_pdf, tmp_path):
+    gs = _ghostscript()
+    pdfua = _build_pdfua(gs, make_text_pdf("src.pdf"), tmp_path / "libro_ua.pdf")
+    assert run_verapdf(pdfua, flavour="ua1")["status"] == "PASS"  # el original es PDF/UA-1
+
+    result = seal_document(pdfua, SealConfig(policy=POLICY, compute_iscc=True))
+
+    assert result.status == "success", result.warnings
+    assert result.validations["verapdf_ua"] == "PASS"
+    assert "verapdf" not in result.validations  # no es PDF/A
+
+
+def test_visible_notice_refused_on_real_pdfua(make_text_pdf, tmp_path):
+    """El aviso visible rompería PDF/UA: el archivo se omite (TDM023) y no se escribe nada."""
+    gs = _ghostscript()
+    pdfua = _build_pdfua(gs, make_text_pdf("src.pdf"), tmp_path / "libro_ua.pdf")
+
+    result = seal_document(pdfua, SealConfig(policy=POLICY, notice=NOTICE))
+
+    assert result.status == "skipped"
+    assert result.reason_code == "TDM023"
+    assert any("PDF/UA" in e for e in result.errors)
+    assert result.output_path is None
+    assert not (tmp_path / "libro_ua_TDM.pdf").exists()
