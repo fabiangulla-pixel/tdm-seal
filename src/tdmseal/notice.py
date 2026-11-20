@@ -196,14 +196,15 @@ def build_pdf_notice_stream(
 
 
 def build_epub_notice_xhtml(options: NoticeOptions, epub3: bool) -> bytes:
+    # EPUB 2 es XHTML 1.1: no tiene <section> ni el atributo `lang` (solo
+    # xml:lang). EPUBCheck lo rechaza (visto con EPUBCheck 5.4.0).
+    tag = "section" if epub3 else "div"
     sections = []
     for i, (title, paragraphs) in enumerate(options.paragraphs()):
         lang = "es" if i == 0 else "en"
+        lang_attrs = f'xml:lang="{lang}" lang="{lang}"' if epub3 else f'xml:lang="{lang}"'
         body = "\n".join(f"    <p>{escape(p)}</p>" for p in paragraphs)
-        sections.append(
-            f'  <section xml:lang="{lang}" lang="{lang}">\n'
-            f"    <h1>{escape(title)}</h1>\n{body}\n  </section>"
-        )
+        sections.append(f"  <{tag} {lang_attrs}>\n    <h1>{escape(title)}</h1>\n{body}\n  </{tag}>")
     if epub3:
         head = (
             '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n'

@@ -1,14 +1,16 @@
-"""Resolución de rutas a `resources/`, igual congelado (PyInstaller) que sin congelar."""
+"""Rutas a los recursos empaquetados (`tdmseal/resources/`).
+
+Viven dentro del paquete para que funcionen igual instalado con
+`pip install` (no editable), en modo editable y congelado con PyInstaller
+(`build_exe.bat` los copia a `tdmseal/resources` dentro del .exe).
+"""
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
+
+_RESOURCES = Path(__file__).resolve().parent / "resources"
 
 
 def resource_path(*parts: str) -> Path:
-    if hasattr(sys, "_MEIPASS"):
-        base = Path(sys._MEIPASS)  # type: ignore[attr-defined]
-    else:
-        base = Path(__file__).resolve().parents[2]
-    return base.joinpath("resources", *parts)
+    return _RESOURCES.joinpath(*parts)

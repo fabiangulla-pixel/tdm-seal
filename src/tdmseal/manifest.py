@@ -25,6 +25,7 @@ import pikepdf
 from tdmseal import __version__
 from tdmseal.discovery import document_kind
 from tdmseal.documents import inspect_document
+from tdmseal.tools import no_window
 from tdmseal.xmp.parser import RDF_NS, find_rdf_root, parse_xmp
 
 SIGNATURE_NAMESPACE = "tdm-seal-manifest"
@@ -258,6 +259,7 @@ def sign_file(path: Path, key: Path) -> Path:
         text=True,
         timeout=60,
         check=False,
+        **no_window(),
     )
     if proc.returncode != 0 or not sig.exists():
         raise RuntimeError(f"ssh-keygen no pudo firmar: {proc.stderr.strip()}")

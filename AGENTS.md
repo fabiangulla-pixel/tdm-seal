@@ -60,13 +60,30 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v1.0.0, 19-nov-2026)
+## Estado (v1.1.0, 20-nov-2026)
 
-Hoja de ruta v0.5–v1.0 completa (ISCC, EPUB, sitio + AIPREF, ODRL, aviso
-visible, manifiesto, GUI en pestañas, .exe). Pendientes reales: revisión de
-estilo del texto del aviso (`notice.py`), probar con veraPDF/EPUBCheck reales
-(no hay Java en este equipo), compilar el instalador (Inno Setup no está
-instalado) y fixtures reales de PDF/A, PDF/UA y firmados.
+Hoja de ruta v0.5–v1.0 completa y validada con herramientas reales.
+Herramientas instaladas en `%LOCALAPPDATA%\TDMSeal\tools` (Java 21,
+veraPDF 1.30, EPUBCheck 5.4, Ghostscript 10.08) con
+`scripts\instalar_herramientas.ps1 -ConGhostscript`; Inno Setup 6 en
+`%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`.
+
+Pruebas `real_tools` (`tests/integration/test_real_tools.py`) usan las
+herramientas reales; `conftest` las desactiva en el resto. Antes de dar por
+bueno un cambio en EPUB, PDF/A o el aviso visible, correrlas: detectaron un
+error que los dobles no veían.
+
+Verificar el `.exe` con `TDM-Seal.exe --autoprueba informe.json` (sin
+ventana), no solo abriéndolo. Con PowerShell, no lanzar `TDM-Seal.bat` por
+tubería (`| Select-Object`): la GUI hereda la tubería y el comando no
+termina.
+
+No usar Word por COM para generar PDF/A de prueba: se colgó sin ventana (y
+coincidió con una caída de Google Drive). Ghostscript con `-dPDFA=2` y
+`--permit-file-read` sobre `iccprofiles/` genera PDF/A válidos.
+
+Pendientes: revisión de estilo del aviso (`notice.py`); PDF/UA y firmados
+reales.
 
 GUI: `gui.py` en pestañas con hoja de estilos `STYLE`; el usuario rechaza el
 aspecto nativo sin estilizar. Para revisarla, capturas offscreen con

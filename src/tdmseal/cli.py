@@ -26,6 +26,7 @@ from tdmseal.policy.builder import PolicyOptions, write_policy_artifacts
 from tdmseal.policy.policy_validator import validate_policy_jsonld
 from tdmseal.reporting.json_report import write_report
 from tdmseal.site import build_site_artifacts, validate_tdmrep_json, write_site_artifacts
+from tdmseal.tools import tools_status
 from tdmseal.xmp.tdmrep import validate_policy_url
 
 
@@ -313,6 +314,36 @@ def manifest(
             sys.exit(1)
         click.echo(f"[OK] firma -> {sig}")
         click.echo(f"Para verificarla: {verify_command(written)}")
+
+
+@main.command("selftest")
+@click.option("--dir", "workdir", type=click.Path(path_type=Path), default=None)
+def selftest_command(workdir: Path | None) -> None:
+    """Autoprueba de punta a punta con un PDF y un EPUB de ejemplo (no toca sus archivos)."""
+    from tdmseal.selftest import run_selftest
+
+    result = run_selftest(workdir)
+    for s in result["pasos"]:
+        click.echo(f"[{'OK' if s['ok'] else 'FALLO'}] {s['paso']}")
+        if not s["ok"]:
+            click.echo(f"      {s['detalle']}")
+    click.echo(f"\nCarpeta de la prueba: {result['carpeta']}")
+    click.echo("Todo funciona." if result["ok"] else "Hay pasos con fallos.")
+    if not result["ok"]:
+        sys.exit(1)
+
+
+@main.command("tools")
+def tools_command() -> None:
+    """Muestra qué herramientas opcionales encontró (Java, veraPDF, EPUBCheck)."""
+    status = tools_status()
+    for name, value in status.items():
+        click.echo(f"{name:>24}: {value or 'NO ENCONTRADO'}")
+    if not (status["verapdf"] and status["epubcheck"]):
+        click.echo(
+            "\nPara instalar lo que falta (sin permisos de administrador):\n"
+            "  powershell -ExecutionPolicy Bypass -File scripts\\instalar_herramientas.ps1"
+        )
 
 
 @main.group()

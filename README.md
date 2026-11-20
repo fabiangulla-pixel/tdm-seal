@@ -10,7 +10,7 @@ todas las vías que hoy existen, y genera la política con la que invita a
 licenciar. **No es DRM ni un bloqueo técnico:** es una señal declarativa,
 legible por máquinas y por personas.
 
-**Versión 1.0.0.** Guía rápida para editoriales:
+**Versión 1.1.0.** Guía rápida para editoriales:
 [Cómo reservar su catálogo frente al entrenamiento de IA en 10 minutos](docs/guia-10-minutos.md).
 
 ## Qué hace
@@ -70,8 +70,19 @@ python -m venv "%USERPROFILE%\.venvs\tdm-seal"
 
 Extras opcionales: `gui` (PySide6), `iscc` (Text-Code de PDF, pypdfium2),
 `iscc-epub` (Text-Code de EPUB, iscc-tika, ~110 MB), `dev` (pruebas).
-Validadores externos opcionales: veraPDF (`verapdf` en el PATH) y EPUBCheck
-(`TDMSEAL_EPUBCHECK_JAR`), ambos requieren Java.
+
+**Validadores (opcionales, recomendados):** veraPDF comprueba que los
+PDF/A sigan conformes tras sellar y EPUBCheck que los EPUB sigan válidos.
+Para instalarlos con Java, sin permisos de administrador:
+
+```bash
+powershell -ExecutionPolicy Bypass -File scripts\instalar_herramientas.ps1
+tdmseal tools        # qué encontró
+```
+
+**¿Funciona todo?** `tdmseal selftest`, o `TDM-Seal.exe --autoprueba
+informe.json` con el ejecutable: sella un PDF y un EPUB de ejemplo y recorre
+todas las vías sin tocar sus archivos.
 
 ## GUI
 
@@ -123,8 +134,10 @@ tdmseal config set --publisher-name "Editorial" --aipref "train-ai=n, ai-use=n, 
 ```
 
 Códigos de omisión o error frecuentes: `TDM020` cifrado, `TDM021` firmado,
-`TDM022` EPUB con DRM, `TDM023` aviso visible no aplicable, `TDM050` la
-salida ya existe.
+`TDM022` EPUB con DRM, `TDM023` aviso visible no aplicable, `TDM050` ya
+sellado (existe la salida; se omite sin sobrescribir). Al recorrer una
+carpeta se ignoran los `*_TDM.*`, así que se puede volver a sellar la misma
+carpeta tras añadir libros nuevos.
 
 ## Limitaciones conocidas
 
@@ -134,7 +147,8 @@ salida ya existe.
   en iscc-sdk) y cambia con el sufijo `_TDM`; el Text-Code no. Los PDF
   escaneados sin OCR no tienen Text-Code.
 - El esquema de extensión PDF/A de TDMRep es una redacción propia (el
-  archivo oficial de la PDF Association no se pudo descargar).
+  archivo oficial de la PDF Association no se pudo descargar); veraPDF
+  confirma que PDF/A-1b y PDF/A-2b reales siguen conformes tras sellar.
 - La firma del manifiesto prueba quién firmó, no cuándo.
 - El texto del aviso visible está pendiente de revisión de estilo
   (`docs/aviso-visible.md`).

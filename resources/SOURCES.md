@@ -11,7 +11,7 @@ PowerShell `Invoke-WebRequest` con user-agent de navegador, y la herramienta
 de fetch del propio agente lo confirmaron). Un humano con navegador normal
 probablemente sí puede descargarlo.
 
-Mientras tanto, `resources/tdmrep_pdfa_extension_schema.xml` es una
+Mientras tanto, `src/tdmseal/resources/tdmrep_pdfa_extension_schema.xml` es una
 **redacción propia**, siguiendo la estructura estándar de PDF/A Extension
 Schema (ISO 19005-2 Annex B / ISO 19005-3 Annex B — el mecanismo
 `pdfaExtension:schemas` / `pdfaSchema:*` / `pdfaProperty:*` es público y
@@ -21,7 +21,7 @@ propietario de la PDF Association). Declara el namespace TDMRep
 `reservation` (Integer) y `policy` (URI).
 
 **Pendiente:** si se consigue el archivo oficial `TDMRepSchema-2025_02.xml`,
-reemplazar `resources/tdmrep_pdfa_extension_schema.xml` por ese contenido
+reemplazar `src/tdmseal/resources/tdmrep_pdfa_extension_schema.xml` por ese contenido
 (mismo nombre de archivo esperado por `tdmseal/xmp/pdfa_extension.py`, o
 actualizar la ruta en ese módulo) y completar aquí:
 

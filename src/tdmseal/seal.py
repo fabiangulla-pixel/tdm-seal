@@ -95,10 +95,10 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
         return SealResult(
             input_path=input_path,
             output_path=output_path,
-            status="failed",
+            status="skipped",
             reason_code="TDM050",
             before=before,
-            errors=[f"La salida ya existe: {output_path}"],
+            errors=[already_sealed_message(output_path)],
         )
 
     warnings: list[str] = []
@@ -179,7 +179,7 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
             warnings.extend(qpdf_result["issues"])
 
     if before.is_pdfa and config.run_verapdf:
-        verapdf_result = run_verapdf(output_path)
+        verapdf_result = run_verapdf(output_path, input_path)
         validations["verapdf"] = verapdf_result["status"]
         warnings.extend(verapdf_result["issues"])
 
@@ -244,6 +244,13 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
         warnings=warnings,
         iscc_input=iscc_input,
         iscc_output=iscc_output,
+    )
+
+
+def already_sealed_message(output_path: Path) -> str:
+    return (
+        f"Ya sellado: existe {output_path.name}. No se sobrescribe; bórrelo si quiere "
+        "volver a sellar con otros valores."
     )
 
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tdm-seal"
-version = "1.0.0"
+version = "1.1.0"
 description = "Reserva de derechos TDM (TDMRep, ISCC, ODRL, AIPREF) para PDF y EPUB editoriales"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -44,8 +44,14 @@ tdmseal-gui = "tdmseal.gui:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+tdmseal = ["resources/*.xml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "real_tools: usa veraPDF/EPUBCheck reales si están instalados (si no, se omite)",
+]
 
 [tool.ruff]
 target-version = "py310"

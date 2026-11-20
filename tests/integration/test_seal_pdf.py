@@ -201,5 +201,7 @@ def test_no_sobrescribe_salida_existente(make_pdf):
 
     result = seal_pdf(pdf_path, _config())
 
-    assert result.status == "failed"
+    # Ya sellado: se omite (no es un error) y no se sobrescribe.
+    assert result.status == "skipped"
     assert result.reason_code == "TDM050"
+    assert output_path.read_bytes() == b"%PDF-1.4\n%%EOF"

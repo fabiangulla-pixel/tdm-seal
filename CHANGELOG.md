@@ -1,5 +1,57 @@
 # Changelog
 
+## [1.1.0] - 2026-11-20
+
+Ronda de uso real: probar el programa como lo usaría una editorial, con las
+herramientas de validación instaladas de verdad.
+
+### Corregido
+
+- **Volver a sellar una carpeta** daba error en cada original ("la salida
+  ya existe") y creaba copias `_TDM_TDM`. Ahora, al recorrer una carpeta, se
+  omiten las salidas `*_TDM.*`, y una salida ya existente se informa como
+  **omitida ("ya sellado")**, no como error.
+- **Aviso visible en EPUB 2 inválido**: usaba `<section>` y `lang`, que
+  XHTML 1.1 no admite. Lo detectó EPUBCheck real; ahora usa `<div>` y
+  `xml:lang`.
+- **`pip install` no editable rompía PDF/A**: las plantillas del esquema de
+  extensión estaban fuera del paquete. Ahora viven en
+  `src/tdmseal/resources/` como datos del paquete (y en el `.exe`).
+- veraPDF solo juzgaba el archivo sellado: un PDF/A que ya venía defectuoso
+  se atribuía al sello. Ahora compara original y sellado y solo falla ante
+  incumplimientos nuevos (igual que EPUBCheck). Admite las dos formas de
+  JSON de veraPDF.
+- `TDM-Seal.bat` solo instalaba dependencias la primera vez: con una
+  versión nueva arrancaba sin ellas. Ahora reinstala si cambia
+  `pyproject.toml`.
+- Desde la GUI y el `.exe`, las llamadas a Java/veraPDF/ssh-keygen ya no
+  abren ventanas de consola.
+
+### Añadido
+
+- **`scripts\instalar_herramientas.ps1`**: instala Java (Temurin 21),
+  EPUBCheck y veraPDF en `%LOCALAPPDATA%\TDMSeal\tools`, sin permisos de
+  administrador ni tocar el PATH (`-ConGhostscript` añade Ghostscript para
+  las pruebas). Idempotente.
+- `tdmseal/tools.py` encuentra solas esas herramientas; **`tdmseal tools`**
+  muestra qué hay. La GUI indica si hay validadores.
+- **Autoprueba de punta a punta**: `tdmseal selftest` y
+  `TDM-Seal.exe --autoprueba [informe.json]` (sin ventana) sellan un PDF y
+  un EPUB de ejemplo, comprueban el esquema PDF/A, la política, el sitio y
+  el manifiesto.
+- GUI: la celda de estado explica por qué se omitió o falló cada archivo
+  (errores, avisos, validaciones, reporte).
+- Pruebas `real_tools` con veraPDF, EPUBCheck y Ghostscript reales (se
+  omiten donde no están): PDF/A-1b y PDF/A-2b reales siguen conformes tras
+  sellar con ISCC; EPUB 2 y 3, con y sin aviso, sin errores de EPUBCheck.
+
+### Verificado en este equipo
+
+- `TDM-Seal.exe` congelado: autoprueba completa OK (incluye EPUBCheck real).
+- `TDM-Seal-Setup.exe`: instalación silenciosa sin administrador,
+  autoprueba del programa instalado y desinstalación limpia.
+- 3 EPUB reales sellados sin errores nuevos de EPUBCheck (uno ya traía 5).
+
 ## [1.0.0] - 2026-11-19
 
 ### Añadido

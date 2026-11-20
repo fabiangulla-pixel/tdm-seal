@@ -43,7 +43,7 @@ from tdmseal.validation.epubcheck_validator import run_epubcheck
 def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
     """Sella un EPUB. Nunca lanza excepción: los fallos se reflejan en el resultado."""
     # Import diferido: seal.py (PDF) importa este módulo para despachar.
-    from tdmseal.seal import _safe_content_iscc, verify_declared_iscc
+    from tdmseal.seal import _safe_content_iscc, already_sealed_message, verify_declared_iscc
 
     input_path = Path(input_path)
     try:
@@ -70,10 +70,10 @@ def seal_epub(input_path: Path, config: SealConfig) -> SealResult:
         return SealResult(
             input_path,
             output_path,
-            "failed",
+            "skipped",
             reason_code=TDM050_OUTPUT_EXISTS,
             before=before,
-            errors=[f"La salida ya existe: {output_path}"],
+            errors=[already_sealed_message(output_path)],
         )
 
     warnings: list[str] = []

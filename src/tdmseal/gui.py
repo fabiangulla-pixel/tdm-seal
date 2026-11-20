@@ -59,6 +59,7 @@ from tdmseal.notice import notice_from_publisher
 from tdmseal.policy.builder import PolicyOptions, build_policy_artifacts, write_policy_artifacts
 from tdmseal.reporting.json_report import write_report
 from tdmseal.site import build_site_artifacts, write_site_artifacts
+from tdmseal.tools import tools_status
 
 COLUMNS = ["Archivo", "Formato", "Firmado", "Cifrado / DRM", "TDM actual", "Estado", "ISCC"]
 ISCC_COL = 6
@@ -193,6 +194,22 @@ class _ManifestWorker(QObject):
             self.finished.emit(manifest.write(self._out))
         except Exception as exc:  # noqa: BLE001 — se muestra al usuario
             self.finished.emit(exc)
+
+
+def seal_result_details(result) -> str:
+    """Texto para la ayuda emergente de la fila: por qué se omitió o falló, y avisos."""
+    lines = []
+    for error in result.errors:
+        lines.append(f"• {error}")
+    if result.validations:
+        lines.append(
+            "Validaciones: " + ", ".join(f"{k}={v}" for k, v in result.validations.items())
+        )
+    for warning in result.warnings:
+        lines.append(f"Aviso: {warning}")
+    if result.output_path is not None and result.status == "success":
+        lines.append(f"Reporte: {result.output_path.name}.report.json")
+    return "\n".join(lines) or "Sin observaciones."
 
 
 def _hint(text: str) -> QLabel:
@@ -343,6 +360,13 @@ class MainWindow(QMainWindow):
         action_row.addWidget(self.btn_audit)
         action_row.addWidget(self.btn_apply)
         action_row.addStretch(1)
+        self.tools_label = QLabel(self._tools_summary())
+        self.tools_label.setObjectName("hint")
+        self.tools_label.setToolTip(
+            "veraPDF y EPUBCheck son opcionales: si están, cada sellado se valida con "
+            "ellos. Se instalan con scripts\\instalar_herramientas.ps1."
+        )
+        action_row.addWidget(self.tools_label)
         action_row.addWidget(self.btn_open_folder)
         layout.addLayout(action_row)
 
@@ -822,11 +846,22 @@ class MainWindow(QMainWindow):
     def _on_seal_file_done(self, row: int, result) -> None:
         if result.status == "success":
             self._last_output_dir = result.output_path.parent
-            self._set_row_text(row, 5, f"sellado -> {result.output_path.name}", color=_OK_COLOR)
+            text, color = f"sellado -> {result.output_path.name}", _OK_COLOR
         elif result.status == "skipped":
-            self._set_row_text(row, 5, f"omitido ({result.reason_code})", color=_WARN_COLOR)
+            reason = "ya sellado" if result.reason_code == "TDM050" else result.reason_code
+            text, color = f"omitido ({reason})", _WARN_COLOR
         else:
-            self._set_row_text(row, 5, f"error ({result.reason_code})", color=_ERROR_COLOR)
+            text, color = f"error ({result.reason_code or 'ver detalle'})", _ERROR_COLOR
+        self._set_row_text(row, 5, text, color=color)
+        self.table.item(row, 5).setToolTip(seal_result_details(result))
+
+    def _tools_summary(self) -> str:
+        status = tools_status()
+        parts = [
+            f"veraPDF {'sí' if status['verapdf'] else 'no'}",
+            f"EPUBCheck {'sí' if status['epubcheck'] else 'no'}",
+        ]
+        return "Validadores externos: " + ", ".join(parts)
 
     def _on_seal_finished(self, ok: int, skipped: int, failed: int) -> None:
         total = ok + skipped + failed
@@ -863,7 +898,31 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, "Carpeta de salida", str(self._last_output_dir))
 
 
+def _run_selftest_and_exit(argv: list[str]) -> None:
+    """`TDM-Seal.exe --autoprueba [informe.json]`: sin ventana; escribe un JSON y sale.
+
+    El .exe no tiene consola, así que el resultado va a un archivo (por
+    defecto `%TEMP%\\tdmseal-autoprueba.json`). Código de salida 0 si todo OK.
+    """
+    import json
+    import tempfile
+
+    from tdmseal.selftest import run_selftest
+
+    idx = argv.index("--autoprueba")
+    out = (
+        Path(argv[idx + 1])
+        if len(argv) > idx + 1
+        else Path(tempfile.gettempdir()) / "tdmseal-autoprueba.json"
+    )
+    result = run_selftest()
+    out.write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
+    sys.exit(0 if result["ok"] else 1)
+
+
 def main() -> None:
+    if "--autoprueba" in sys.argv:
+        _run_selftest_and_exit(sys.argv)
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
     app.setStyleSheet(STYLE)

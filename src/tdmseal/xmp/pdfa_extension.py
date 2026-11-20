@@ -4,8 +4,8 @@ PDF/A-1/2/3 exigen declarar cualquier namespace XMP que no forme parte del
 conjunto predefinido mediante un `pdfaExtension:schemas` en el XMP de nivel
 de documento (ISO 19005-2/3, Annex B). PDF/A-4 no usa este mecanismo.
 
-La plantilla del esquema vive en `resources/tdmrep_pdfa_extension_schema.xml`
-(ver `resources/SOURCES.md` sobre su procedencia).
+Las plantillas viven en `src/tdmseal/resources/` (procedencia en
+`resources/SOURCES.md`, en la raíz del repositorio).
 """
 
 from __future__ import annotations

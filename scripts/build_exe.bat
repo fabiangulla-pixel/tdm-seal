@@ -29,7 +29,7 @@ echo Compilando TDM-Seal.exe (puede tardar varios minutos)...
     --workpath "%BUILD_ROOT%\work" ^
     --distpath "%BUILD_ROOT%\dist" ^
     --specpath "%BUILD_ROOT%" ^
-    --add-data "%PROJECT_DIR%\resources\*.xml;resources" ^
+    --add-data "%PROJECT_DIR%\src\tdmseal\resources\*.xml;tdmseal\resources" ^
     --exclude-module iscc_tika ^
     "%PROJECT_DIR%\src\tdmseal\gui.py"
 

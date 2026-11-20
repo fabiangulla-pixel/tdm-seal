@@ -1,11 +1,9 @@
 """Validación EPUB con EPUBCheck (opcional, degrada a SKIPPED si no está).
 
 EPUBCheck es una herramienta Java (W3C/DAISY, https://www.w3.org/publishing/epubcheck/).
-Se busca, en este orden:
-
-1. la variable de entorno `TDMSEAL_EPUBCHECK_JAR` (ruta a `epubcheck.jar`),
-   que se ejecuta con el `java` del PATH;
-2. un comando `epubcheck` (o `.bat`/`.cmd`) en el PATH.
+Se localiza con `tdmseal.tools.find_epubcheck()`: `TDMSEAL_EPUBCHECK_JAR`, la
+carpeta de herramientas de TDM Seal (`scripts\\instalar_herramientas.ps1`) o
+un comando `epubcheck` en el PATH.
 
 Muchos EPUB reales ya traen avisos o errores de EPUBCheck. Por eso no se
 juzga el resultado en absoluto: se valida el original y el sellado, y solo
@@ -15,31 +13,23 @@ falla si el sellado tiene errores que el original no tenía.
 from __future__ import annotations
 
 import json
-import os
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
 
+from tdmseal import tools
+
 NOT_INSTALLED = (
     "Validación EPUB omitida (SKIPPED): EPUBCheck no está instalado en este equipo. "
     "El sello se aplicó igual, pero no se comprobó el EPUB resultante con EPUBCheck. "
-    "Para activarla, descargue EPUBCheck (https://www.w3.org/publishing/epubcheck/, "
-    "requiere Java) y defina TDMSEAL_EPUBCHECK_JAR con la ruta a epubcheck.jar."
+    "Para activarla, ejecute scripts\\instalar_herramientas.ps1, o descargue EPUBCheck "
+    "(https://www.w3.org/publishing/epubcheck/, requiere Java) y defina "
+    "TDMSEAL_EPUBCHECK_JAR con la ruta a epubcheck.jar."
 )
 
 
 def _command() -> list[str] | None:
-    jar = os.environ.get("TDMSEAL_EPUBCHECK_JAR")
-    if jar and Path(jar).exists():
-        java = shutil.which("java")
-        if java:
-            return [java, "-jar", jar]
-    for name in ("epubcheck", "epubcheck.bat", "epubcheck.cmd"):
-        found = shutil.which(name)
-        if found:
-            return [found]
-    return None
+    return tools.find_epubcheck()
 
 
 def epubcheck_errors(path: Path, command: list[str]) -> set[str]:
@@ -52,6 +42,7 @@ def epubcheck_errors(path: Path, command: list[str]) -> set[str]:
             text=True,
             timeout=300,
             check=False,
+            **tools.no_window(),
         )
         data = json.loads(report.read_text(encoding="utf-8"))
     errors = set()
