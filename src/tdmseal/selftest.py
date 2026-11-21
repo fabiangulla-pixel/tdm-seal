@@ -131,6 +131,34 @@ def run_selftest(workdir: Path | None = None) -> dict:
         ok = len(m.rows) == 2 and all(r.get("estado") == "ok" for r in m.rows)
         return ok, {"filas": len(m.rows)}
 
+    def registry_match_onix_step():
+        # Registro público, búsqueda de copias y ONIX, sin red.
+        from tdmseal.fingerprint import write_fingerprints
+        from tdmseal.match import match_file
+        from tdmseal.onix import build_onix, tdm_status_in_onix
+        from tdmseal.registry import build_registry
+
+        pdf = work / "libro_TDM.pdf"
+        m = build_manifest([pdf], base_dir=work, publisher=vars(publisher))
+        catalog = m.write(work / "catalogo.json")
+        write_fingerprints(catalog, {m.rows[0]["archivo"]: pdf})
+        reg = build_registry(catalog, work / "registro")
+        matches = match_file(pdf, catalog)
+        onix = tdm_status_in_onix(build_onix(m.rows, 1))
+        ok = reg.works == 1 and matches[:1] and matches[0].level == "idéntico"
+        ok = bool(ok) and list(onix.values()) == ["03"]
+        return ok, {"registro": reg.works, "coincidencias": [x.level for x in matches]}
+
+    def hub_signature_step():
+        # Firma Ed25519 de una declaración ISCC (sin enviarla).
+        from tdmseal.iscc import ed25519
+        from tdmseal.iscc.hub import HubKey, build_note, verify_note
+
+        seed = bytes.fromhex("9d61b19deffd5a60ba844af492ec2cc44449c5697b326919703bac031cae7f60")
+        rfc_ok = ed25519.public_key(seed).hex().startswith("d75a980182b10ab7")
+        note = build_note(work / "libro_TDM.pdf", HubKey(seed, "did:web:ejemplo.org"), 1)
+        return rfc_ok and verify_note(note), {"iscc": note["iscc_code"]}
+
     step("sellar PDF con ISCC", seal_pdf_step)
     step("sellar EPUB con ISCC", seal_epub_step)
     step("esquema de extensión PDF/A", pdfa_templates_step)
@@ -138,6 +166,8 @@ def run_selftest(workdir: Path | None = None) -> dict:
     step("política ODRL", policy_step)
     step("señales del sitio", site_step)
     step("manifiesto del catálogo", manifest_step)
+    step("registro público, copias y ONIX", registry_match_onix_step)
+    step("firma de declaración ISCC", hub_signature_step)
 
     return {
         "tdm_seal": __version__,

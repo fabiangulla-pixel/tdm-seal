@@ -610,10 +610,8 @@ def hub_declare(
     from tdmseal.iscc.hub import (
         HUB_NAMES,
         HubError,
-        _request,
-        build_note,
-        declare,
-        did_url,
+        check_did_published,
+        declare_file,
         hub_url,
         load_key,
     )
@@ -630,27 +628,19 @@ def hub_declare(
     )
     if not skip_did_check:
         try:
-            _, doc = _request(did_url(key.controller))
+            check_did_published(key)
         except HubError as exc:
-            click.echo(f"Error: no se pudo leer {did_url(key.controller)}: {exc}")
-            click.echo("Publique primero el did.json de `tdmseal iscc-hub keygen`.")
-            sys.exit(1)
-        if key.public_key not in json.dumps(doc):
-            click.echo(f"Error: {did_url(key.controller)} no contiene su clave pública.")
+            click.echo(f"Error: {exc}")
             sys.exit(1)
     failed = 0
     for path in files:
         try:
-            note = build_note(path, key, hub_id, gateway)
-            result = declare(note, url)
+            record, _ = declare_file(path, key, hub_id, network, gateway)
         except (HubError, ValueError, OSError) as exc:
             failed += 1
             click.echo(f"[ERROR] {path.name}: {exc}")
             continue
-        record = {"hub": url, "network": network, "note": note, **result}
-        out = Path(str(path) + ".iscc-declaracion.json")
-        out.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-        click.echo(f"[OK] {path.name}: {result['iscc_id']} -> {url}/{result['iscc_id']}")
+        click.echo(f"[OK] {path.name}: {record['iscc_id']} -> {url}/{record['iscc_id']}")
     if failed:
         sys.exit(1)
 

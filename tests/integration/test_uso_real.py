@@ -41,6 +41,8 @@ def test_selftest_passes(tmp_path):
         "política ODRL",
         "señales del sitio",
         "manifiesto del catálogo",
+        "registro público, copias y ONIX",
+        "firma de declaración ISCC",
     ]
     out = CliRunner().invoke(cli_module.main, ["selftest", "--dir", str(tmp_path / "otra")])
     assert out.exit_code == 0, out.output

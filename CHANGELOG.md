@@ -4,6 +4,14 @@
 
 ### Añadido
 
+- **GUI**: pestañas nuevas "Buscar copias" y "Red ISCC" (identidad
+  `did:web` y declaración, con la red de pruebas por defecto), y en
+  "Catálogo" el sello de tiempo, el registro público y ONIX. Lo que usa la
+  red pide confirmación y dice qué se envía. El manifiesto se guarda en
+  JSON por defecto (lo necesitan el registro y la búsqueda de copias) y deja
+  las huellas por fragmentos.
+- **Autoprueba** con 9 pasos: añade registro + copias + ONIX y la firma de
+  una declaración ISCC (vector de la RFC 8032), todo sin red.
 - **Declaración directa en la red de hubs ISCC** (`tdmseal iscc-hub
   keygen|prepare|declare`, `iscc/hub.py`): la editorial declara sus obras en
   cualquier hub de la red federada ISCC (ISCC Foundation `iscc.id`, Amlet,
@@ -76,6 +84,11 @@
 
 ### Corregido
 
+- **Cierre abrupto de la GUI**: cerrar la ventana con un hilo de trabajo
+  aún en marcha abortaba el proceso (Qt destruía un `QThread` en ejecución).
+  Se veía en las pruebas de GUI de forma intermitente (2 de cada 5 corridas,
+  código 0xC0000409); ahora la ventana espera a sus hilos al cerrarse
+  (0 fallos en 16 corridas).
 - El helper de firmas abre los PDF en modo tolerante: pyHanko estricto
   rechazaba el libro real por una generación huérfana que dejó MuPDF.
 

@@ -141,11 +141,139 @@ def test_visible_notice_is_off_by_default_and_needs_confirmation(qtbot, monkeypa
     assert window.chk_notice.isChecked()
 
 
-def test_gui_has_four_tabs(qtbot):
+def test_gui_tabs(qtbot):
     window = gui_module.MainWindow()
     qtbot.addWidget(window)
     names = [window.tabs.tabText(i) for i in range(window.tabs.count())]
-    assert names == ["Sellar", "Política", "Sitio web", "Catálogo"]
+    assert names == [
+        "Sellar",
+        "Política",
+        "Sitio web",
+        "Catálogo",
+        "Buscar copias",
+        "Red ISCC",
+    ]
+
+
+def _yes(monkeypatch, answer=True):
+    from PySide6.QtWidgets import QMessageBox
+
+    button = QMessageBox.StandardButton.Yes if answer else QMessageBox.StandardButton.No
+    monkeypatch.setattr(gui_module.QMessageBox, "question", lambda *a, **k: button)
+
+
+def test_catalog_registry_and_match_from_gui(qtbot, monkeypatch, tmp_path, make_text_pdf):
+    pytest.importorskip("pypdfium2")
+    pdf = make_text_pdf("libro.pdf")
+    out = tmp_path / "catalogo.json"
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(pdf.parent))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **kw: (str(out), ""))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+
+    window._build_manifest()
+    qtbot.waitUntil(lambda: "Manifiesto generado" in window.status_label.text(), timeout=20000)
+    assert out.with_name("catalogo.json.huellas.json").exists()
+
+    web = tmp_path / "web"
+    web.mkdir()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **kw: (str(out), ""))
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(web))
+    window._build_registry()
+    assert "Registro generado" in window.status_label.text()
+    assert (web / "registro.json").exists()
+
+    window.match_catalog_edit.setText(str(out))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **kw: (str(pdf), ""))
+    window._run_match()
+    qtbot.waitUntil(lambda: "idéntico" in window.match_output.toPlainText(), timeout=20000)
+
+
+def test_onix_add_from_gui(qtbot, monkeypatch, tmp_path):
+    src = tmp_path / "onix.xml"
+    src.write_text(
+        '<ONIXMessage release="3.0" xmlns="http://ns.editeur.org/onix/3.0/reference">'
+        "<Product><RecordReference>e1</RecordReference><DescriptiveDetail>"
+        "<ProductForm>ED</ProductForm><TitleDetail/></DescriptiveDetail></Product>"
+        "</ONIXMessage>",
+        encoding="utf-8",
+    )
+    out = tmp_path / "onix_TDM.xml"
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **kw: (str(src), ""))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **kw: (str(out), ""))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+
+    window._onix_add()
+
+    assert b"<EpubUsageType>11</EpubUsageType>" in out.read_bytes()
+    assert "1 con reserva añadida" in window.status_label.text()
+
+
+def test_timestamp_needs_confirmation(qtbot, monkeypatch, tmp_path):
+    from tdmseal import timestamp
+
+    manifest = tmp_path / "m.json"
+    manifest.write_text("{}", encoding="utf-8")
+    calls = []
+
+    def fake_create(path, url):
+        calls.append(url)
+        return timestamp.Receipt(
+            "m.json", "00", url, "2026-11-21T18:00:00Z", "01", "1.2", 1, "x", "m.json.tsr"
+        )
+
+    monkeypatch.setattr(timestamp, "create_timestamp", fake_create)
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **kw: (str(manifest), ""))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+
+    _yes(monkeypatch, False)
+    window._timestamp_manifest()
+    assert calls == []
+
+    _yes(monkeypatch, True)
+    window._timestamp_manifest()
+    qtbot.waitUntil(lambda: "Sellado el 2026-11-21" in window.status_label.text(), timeout=5000)
+    assert calls == ["https://freetsa.org/tsr"]
+
+
+def test_hub_keygen_and_declare_from_gui(qtbot, monkeypatch, tmp_path, make_text_pdf):
+    pytest.importorskip("pypdfium2")
+    from tdmseal.iscc import hub
+
+    monkeypatch.setenv("TDMSEAL_HUB_KEY", str(tmp_path / "clave.json"))
+    monkeypatch.setattr(QFileDialog, "getExistingDirectory", lambda *a, **kw: str(tmp_path))
+    warnings = []
+    monkeypatch.setattr(gui_module.QMessageBox, "warning", lambda *a, **k: warnings.append(a))
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    assert "Aún no hay clave" in window.hub_identity_label.text()
+
+    window.hub_domain_edit.setText("editorial.example.edu")
+    window._hub_keygen()
+    did = (tmp_path / "did.json").read_text(encoding="utf-8")
+    assert "did:web:editorial.example.edu" in did
+    assert "did:web:editorial.example.edu" in window.hub_identity_label.text()
+    window._hub_keygen()  # no reemplaza la clave existente
+    assert warnings and "Ya hay una clave" in warnings[-1][1]
+
+    pdf = make_text_pdf("obra.pdf")
+    sent = []
+    monkeypatch.setattr(hub, "check_did_published", lambda key, timeout=30: None)
+
+    def fake_declare(note, url, timeout=30):
+        assert hub.verify_note(note)
+        sent.append(url)
+        return {"iscc_id": "ISCC:MAIGPRUEBA", "seq": 0, "receipt": None}
+
+    monkeypatch.setattr(hub, "declare", fake_declare)
+    monkeypatch.setattr(QFileDialog, "getOpenFileNames", lambda *a, **kw: ([str(pdf)], ""))
+    _yes(monkeypatch, True)
+    window._hub_declare()
+    qtbot.waitUntil(lambda: "ISCC:MAIGPRUEBA" in window.hub_output.toPlainText(), timeout=20000)
+    assert sent == ["https://staging.iscc.id"]  # por defecto, la red de pruebas
+    assert pdf.with_name("obra.pdf.iscc-declaracion.json").exists()
 
 
 def test_aipref_defaults_and_policy_preview(qtbot):
