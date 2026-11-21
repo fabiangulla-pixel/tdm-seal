@@ -4,6 +4,17 @@
 
 ### Añadido
 
+- **Sello de tiempo RFC 3161** (`tdmseal timestamp create|verify`,
+  `timestamp.py`): prueba ante terceros de la fecha de la reserva (lo ideal:
+  sellar el manifiesto del catálogo, una sola petición para todas las obras).
+  Es lo único que usa la red y solo bajo orden explícita: a la TSA (FreeTSA,
+  DigiCert, Sectigo o cualquier URL) se envía solo la huella SHA-256, nunca
+  el archivo. Deja `ARCHIVO.tsr` y un recibo `ARCHIVO.tsr.json`. La
+  verificación es local: la huella y el nonce siempre; la firma de la TSA con
+  OpenSSL (el de Git para Windows sirve) y su certificado raíz (`--ca`). DER
+  escrito a mano, sin dependencias nuevas. Probado contra una TSA local
+  montada con `openssl ts -reply` (sin red): sello, archivo alterado, CA
+  equivocada y rechazo de la TSA.
 - **Reserva TDM en ONIX 3.0** (`tdmseal onix add` / `tdmseal onix build`,
   `onix.py`): `EpubUsageConstraint` con `EpubUsageType` 11 (minería de textos
   y datos, incluido el entrenamiento de IA generativa, lista 145) y
