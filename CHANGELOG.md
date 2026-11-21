@@ -4,6 +4,24 @@
 
 ### Añadido
 
+- **Registro público propio** (`tdmseal registry`, `registry.py`): sitio
+  estático generado desde el manifiesto, que la editorial aloja donde quiera
+  (sin intermediarios ni cuotas). Una ficha por obra con la declaración en
+  español e inglés (texto del aviso aprobado), tipo de declaración (minería
+  autorizada / todos los derechos reservados / reservado con licencia
+  disponible), identificadores (ISBN, ISCC completo y por unidades,
+  SHA-256), base jurídica, JSON-LD schema.org `Book` y metaetiquetas TDMRep;
+  `registro.json` legible por máquina; y, si el manifiesto tiene sello RFC
+  3161, la prueba enlazada (se rechaza un sello que no corresponda al
+  manifiesto). El índice incluye un buscador y un verificador que calcula la
+  huella SHA-256 en el navegador: el archivo no se sube.
+- **¿Es este archivo uno de mis libros?** (`tdmseal match`, `match.py`):
+  reconoce una copia frente al manifiesto o al `registro.json` aunque esté
+  renombrada, re-guardada o sin metadatos, por distancia de Hamming del
+  ISCC de contenido. Con *Los días biches*: la copia sin XMP ni `/Info`,
+  linealizada, y la copia sin la última página dan "mismo texto" (0/64 bits).
+  Limitación conocida: un extracto (20 de 164 páginas) todavía no se
+  reconoce.
 - **Sello de tiempo RFC 3161** (`tdmseal timestamp create|verify`,
   `timestamp.py`): prueba ante terceros de la fecha de la reserva (lo ideal:
   sellar el manifiesto del catálogo, una sola petición para todas las obras).

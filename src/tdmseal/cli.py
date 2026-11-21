@@ -458,6 +458,70 @@ def timestamp_verify(file: Path, tsr: Path | None, ca_file: Path | None) -> None
         sys.exit(1)
 
 
+@main.command("registry")
+@click.argument("manifest_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--out",
+    "out_dir",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=Path("registro"),
+    show_default=True,
+)
+@click.option(
+    "--base-url",
+    default=None,
+    help="URL donde se publicará el registro (para los enlaces canónicos).",
+)
+def registry_command(manifest_file: Path, out_dir: Path, base_url: str | None) -> None:
+    """Genera el registro público de reservas TDM (sitio estático) desde el manifiesto .json.
+
+    Una ficha por obra, legible por personas y máquinas (JSON-LD, TDMRep), con
+    la prueba de fecha si el manifiesto tiene sello RFC 3161. La editorial lo
+    publica donde quiera; no se sube nada.
+    """
+    from tdmseal.registry import build_registry
+
+    try:
+        result = build_registry(manifest_file, out_dir, base_url)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+    click.echo(f"[OK] {result.works} obra(s) en el registro -> {result.out_dir / 'index.html'}")
+    if result.skipped:
+        click.echo(f"     {result.skipped} sin declaración TDM o con error (no se incluyen).")
+    if not result.timestamped:
+        click.echo(
+            "     Sin sello de tiempo: para una prueba de fecha ante terceros, antes ejecute "
+            f"`tdmseal timestamp create {manifest_file.name}`."
+        )
+
+
+@main.command("match")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--catalog",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Manifiesto .json o registro.json con el catálogo.",
+)
+def match_command(file: Path, catalog: Path) -> None:
+    """¿Este archivo es uno de mis libros? Lo reconoce aunque esté renombrado,
+    re-guardado o sin metadatos (ISCC de contenido). Sin conexión."""
+    from tdmseal.match import match_file
+
+    try:
+        matches = match_file(file, catalog)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(2)
+    if not matches:
+        click.echo(f"[SIN COINCIDENCIAS] {file.name} no corresponde a ninguna obra del catálogo.")
+        sys.exit(1)
+    for m in matches:
+        reserva = {1: "reservado", 0: "autorizado"}.get(m.reservation, "sin declaración")
+        click.echo(f"[{m.level.upper()}] {m.describe()} — TDM {reserva}")
+
+
 @main.command("selftest")
 @click.option("--dir", "workdir", type=click.Path(path_type=Path), default=None)
 def selftest_command(workdir: Path | None) -> None:
