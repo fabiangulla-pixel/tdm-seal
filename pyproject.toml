@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tdm-seal"
-version = "1.3.0"
+version = "1.4.0"
 description = "Reserva de derechos TDM (TDMRep, ISCC, ODRL, AIPREF) para PDF y EPUB editoriales"
 readme = "README.md"
 requires-python = ">=3.10"

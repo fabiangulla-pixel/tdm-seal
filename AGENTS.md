@@ -60,6 +60,28 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
+## Novedades de la v1.4.0 (21-nov-2026)
+
+Respuesta a los servicios comerciales (Signal / S-PLIA de Hipertexto-Netizen,
+investigados el 21-nov): `onix.py` (EpubUsageType 11, validado contra el XSD
+oficial que `instalar_herramientas.ps1 -ConGhostscript` descarga a
+`tools\onix`), `timestamp.py` (RFC 3161, DER a mano; probado con una TSA
+local de `openssl ts -reply`, sin red), `registry.py` (sitio estático),
+`match.py` + `fingerprint.py` (copias, extractos, volcados de texto),
+`iscc/hub.py` + `iscc/ed25519.py` (declaración en hubs ISCC; interoperabilidad
+probada con iscc-crypto en `%USERPROFILE%\.venvs\iscc-crypto-ref`; el
+validador del hub está clonado en `%LOCALAPPDATA%\TDMSeal\ref\iscc-hub`).
+
+**Red:** solo `timestamp create` e `iscc-hub declare` (y sus botones de la GUI,
+con confirmación) usan internet. Ninguna prueba automática toca la red: TSA y
+hub se simulan en 127.0.0.1. Antes de probar contra una TSA o un hub reales,
+preguntar al usuario (regla: nada sale a la red sin que lo pida). Las claves
+de la editorial van a `%APPDATA%\TDMSeal\clave-iscc.json` (o
+`TDMSEAL_HUB_KEY`), nunca al repositorio.
+
+GUI: `closeEvent` espera a los `QThread`; sin eso, cerrar con un hilo vivo
+abortaba el proceso (0xC0000409, intermitente en `test_gui.py`).
+
 ## Estado (v1.3.0, 21-nov-2026)
 
 Hoja de ruta v0.5–v1.0 completa y validada con herramientas reales.
