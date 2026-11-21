@@ -37,6 +37,7 @@ def test_selftest_passes(tmp_path):
         "sellar PDF con ISCC",
         "sellar EPUB con ISCC",
         "esquema de extensión PDF/A",
+        "PDF firmado sin invalidar la firma",
         "política ODRL",
         "señales del sitio",
         "manifiesto del catálogo",

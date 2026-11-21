@@ -15,6 +15,8 @@
 - Pruebas con PDF cifrados (AES-256, AES-128, RC4), con adjuntos (también
   en árbol de nombres con `/Kids`), con formularios rellenos y con un
   PDF/A-3b con XML adjunto validado en veraPDF.
+- La autoprueba (`--autoprueba`, `tdmseal selftest`) tiene un séptimo
+  paso: sellar un PDF firmado sin tocar un byte del original.
 - Invariantes nuevas: el **contenido** de cada adjunto y los **valores de
   los campos de formulario** deben quedar iguales tras sellar.
 

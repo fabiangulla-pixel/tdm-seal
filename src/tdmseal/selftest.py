@@ -86,6 +86,31 @@ def run_selftest(workdir: Path | None = None) -> dict:
         )
         return ok, {"estado": r.status}
 
+    def signed_pdf_step():
+        # Estructura de firma (sin criptografía): comprueba la vía incremental,
+        # que no debe tocar ni un byte del original.
+        import pikepdf
+
+        from tdmseal.pdf.inspector import inspect_pdf
+
+        src = build_text_pdf(work / "firmado.pdf", SAMPLE_TEXT, title="Firmado")
+        with pikepdf.open(src, allow_overwriting_input=True) as pdf:
+            sig = pdf.make_indirect(
+                pikepdf.Dictionary(Type=pikepdf.Name.Sig, ByteRange=[0, 0, 0, 0])
+            )
+            field = pdf.make_indirect(
+                pikepdf.Dictionary(FT=pikepdf.Name.Sig, T=pikepdf.String("Firma"), V=sig)
+            )
+            pdf.Root.AcroForm = pikepdf.Dictionary(Fields=[field], SigFlags=3)
+            pdf.save(src)
+        r = seal_document(src, SealConfig(policy=policy, force_signed=True))
+        ok = (
+            r.status == "success"
+            and r.output_path.read_bytes().startswith(src.read_bytes())
+            and inspect_pdf(r.output_path).tdm.reservation == 1
+        )
+        return ok, {"estado": r.status, "validaciones": r.validations}
+
     def policy_step():
         paths = write_policy_artifacts(
             work / "politica", publisher, PolicyOptions(aipref=default_preferences())
@@ -109,6 +134,7 @@ def run_selftest(workdir: Path | None = None) -> dict:
     step("sellar PDF con ISCC", seal_pdf_step)
     step("sellar EPUB con ISCC", seal_epub_step)
     step("esquema de extensión PDF/A", pdfa_templates_step)
+    step("PDF firmado sin invalidar la firma", signed_pdf_step)
     step("política ODRL", policy_step)
     step("señales del sitio", site_step)
     step("manifiesto del catálogo", manifest_step)
