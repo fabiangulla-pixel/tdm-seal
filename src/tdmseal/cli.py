@@ -522,6 +522,131 @@ def match_command(file: Path, catalog: Path) -> None:
         click.echo(f"[{m.level.upper()}] {m.describe()} — TDM {reserva}")
 
 
+@main.group("iscc-hub")
+def iscc_hub() -> None:
+    """Declaración directa en la red de hubs ISCC (sin intermediarios ni cuotas)."""
+
+
+@iscc_hub.command("keygen")
+@click.option("--domain", required=True, help="Dominio de la editorial, p. ej. editorial.org")
+@click.option(
+    "--did-out",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=Path("did.json"),
+    show_default=True,
+)
+@click.option("--overwrite", is_flag=True, help="Reemplazar una clave existente (¡cuidado!).")
+def hub_keygen(domain: str, did_out: Path, overwrite: bool) -> None:
+    """Crea la clave de firma de la editorial y el did.json que debe publicar."""
+    from tdmseal.iscc.hub import HubError, did_url, generate_key, save_key
+
+    try:
+        key = generate_key(domain)
+        path = save_key(key, overwrite=overwrite)
+    except (ValueError, HubError) as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+    did_out.write_text(json.dumps(key.did_document(), indent=2) + "\n", encoding="utf-8")
+    click.echo(f"[OK] Clave secreta guardada en {path} (no la comparta).")
+    click.echo(f"[OK] Identidad: {key.controller}")
+    click.echo(f"[OK] Publique {did_out} en: {did_url(key.controller)}")
+
+
+@iscc_hub.command("prepare")
+@click.argument(
+    "files", nargs=-1, required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option("--hub", default="1", show_default=True, help="Hub: 1 (ISCC Foundation), 2, 3.")
+@click.option(
+    "--network", type=click.Choice(["mainnet", "testnet"]), default="mainnet", show_default=True
+)
+@click.option("--gateway", default=None, help="URL pública de la ficha de la obra (opcional).")
+def hub_prepare(files: tuple[Path, ...], hub: str, network: str, gateway: str | None) -> None:
+    """Prepara y firma las notas de declaración SIN enviarlas (para revisarlas)."""
+    from tdmseal.iscc.hub import HubError, build_note, hub_url, load_key
+
+    try:
+        hub_id, _ = hub_url(hub, network)
+        key = load_key()
+    except (ValueError, HubError) as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+    for path in files:
+        note = build_note(path, key, hub_id, gateway)
+        out = Path(str(path) + ".iscc-note.json")
+        out.write_text(json.dumps(note, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        click.echo(f"[OK] {path.name}: {note['iscc_code']} -> {out.name}")
+
+
+@iscc_hub.command("declare")
+@click.argument(
+    "files", nargs=-1, required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option("--hub", default="1", show_default=True, help="Hub: 1 (ISCC Foundation), 2, 3.")
+@click.option(
+    "--network",
+    type=click.Choice(["mainnet", "testnet"]),
+    default="mainnet",
+    show_default=True,
+    help="testnet para ensayar sin dejar registro permanente.",
+)
+@click.option("--gateway", default=None, help="URL pública de la ficha de la obra (opcional).")
+@click.option(
+    "--skip-did-check", is_flag=True, help="No comprobar antes que did.json esté publicado."
+)
+def hub_declare(
+    files: tuple[Path, ...], hub: str, network: str, gateway: str | None, skip_did_check: bool
+) -> None:
+    """Declara cada archivo en un hub ISCC. USA LA RED: envía la nota firmada
+    (ISCC, huellas, firma; nunca el archivo) y guarda ARCHIVO.iscc-declaracion.json."""
+    from tdmseal.iscc.hub import (
+        HUB_NAMES,
+        HubError,
+        _request,
+        build_note,
+        declare,
+        did_url,
+        hub_url,
+        load_key,
+    )
+
+    try:
+        hub_id, url = hub_url(hub, network)
+        key = load_key()
+    except (ValueError, HubError) as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+    click.echo(
+        f"Hub: {HUB_NAMES.get(hub_id, hub_id)} ({url}, {network}). Se envía la nota "
+        "firmada (ISCC y huellas), nunca el archivo."
+    )
+    if not skip_did_check:
+        try:
+            _, doc = _request(did_url(key.controller))
+        except HubError as exc:
+            click.echo(f"Error: no se pudo leer {did_url(key.controller)}: {exc}")
+            click.echo("Publique primero el did.json de `tdmseal iscc-hub keygen`.")
+            sys.exit(1)
+        if key.public_key not in json.dumps(doc):
+            click.echo(f"Error: {did_url(key.controller)} no contiene su clave pública.")
+            sys.exit(1)
+    failed = 0
+    for path in files:
+        try:
+            note = build_note(path, key, hub_id, gateway)
+            result = declare(note, url)
+        except (HubError, ValueError, OSError) as exc:
+            failed += 1
+            click.echo(f"[ERROR] {path.name}: {exc}")
+            continue
+        record = {"hub": url, "network": network, "note": note, **result}
+        out = Path(str(path) + ".iscc-declaracion.json")
+        out.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        click.echo(f"[OK] {path.name}: {result['iscc_id']} -> {url}/{result['iscc_id']}")
+    if failed:
+        sys.exit(1)
+
+
 @main.command("selftest")
 @click.option("--dir", "workdir", type=click.Path(path_type=Path), default=None)
 def selftest_command(workdir: Path | None) -> None:

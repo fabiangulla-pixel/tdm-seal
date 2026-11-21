@@ -237,8 +237,12 @@ def read_epub_meta(path: Path) -> tuple[str | None, str | None]:
     )
 
 
-def compute_content_iscc(path: Path) -> ContentIscc:
-    """Calcula el ISCC-CODE completo de un PDF o EPUB (sin red, sin escribir nada)."""
+def compute_content_iscc(path: Path, bits: int = 64) -> ContentIscc:
+    """Calcula el ISCC-CODE completo de un PDF o EPUB (sin red, sin escribir nada).
+
+    `bits` es el tamaño de cada unidad: 64 (como iscc-sdk) o 256 (unidades
+    completas para declarar en un hub ISCC). El ISCC-CODE compuesto es el mismo.
+    """
     path = Path(path)
     warnings: list[str] = []
     is_epub = path.suffix.lower() == ".epub"
@@ -246,7 +250,7 @@ def compute_content_iscc(path: Path) -> ContentIscc:
     name, description = read_epub_meta(path) if is_epub else read_pdf_meta(path)
     if not _normalized_name(name):
         name = name_from_filename(path)
-    meta = ic.gen_meta_code_v0(name=name, description=description, bits=64)
+    meta = ic.gen_meta_code_v0(name=name, description=description, bits=bits)
 
     text_code: str | None = None
     if is_epub and not epub_extra_available():
@@ -257,11 +261,11 @@ def compute_content_iscc(path: Path) -> ContentIscc:
         raw = extract_epub_text(path) if is_epub else extract_pdf_text(path)
         text = ic.text_clean(raw)
         if text.strip():
-            text_code = ic.gen_text_code_v0(text, bits=64)["iscc"]
+            text_code = ic.gen_text_code_v0(text, bits=bits)["iscc"]
         else:
             warnings.append(NO_TEXT_WARNING)
 
-    data = compute_iscc(path)
+    data = compute_iscc(path, bits=bits)
     units = [meta["iscc"]]
     if text_code:
         units.append(text_code)
