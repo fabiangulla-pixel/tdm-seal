@@ -40,7 +40,7 @@
   `docs/aviso-visible.md`): "se reserva expresamente el derecho a
   autorizar…", mención explícita del uso como fuente de respuestas de IA
   (RAG), forma impersonal y una frase que remite a la declaración legible
-  por máquina (TDMRep). Pendiente del visto bueno del editor.
+  por máquina (TDMRep). Aprobado por el editor.
 
 ## [1.2.0] - 2026-11-20
 

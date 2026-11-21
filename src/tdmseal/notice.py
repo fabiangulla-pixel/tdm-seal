@@ -15,9 +15,9 @@ En PDF etiquetados (no PDF/UA) la página se marca como *Artifact* para no
 alterar el árbol de estructura; se avisa de que los lectores de pantalla
 pueden omitirla.
 
-PLANTILLA DE TEXTO: revisada el 21-nov-2026 (ver docs/aviso-visible.md);
-pendiente del visto bueno del editor. Se mantiene en este único lugar para
-que cualquier cambio sea una sola constante.
+PLANTILLA DE TEXTO: revisada y aprobada por el editor el 21-nov-2026 (ver
+docs/aviso-visible.md). Se mantiene en este único lugar para que cualquier
+cambio sea una sola constante.
 """
 
 from __future__ import annotations

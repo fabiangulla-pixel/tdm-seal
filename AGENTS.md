@@ -98,8 +98,8 @@ Cifrado: `save_pdf` usa `encryption=True` (sin eso pikepdf entrega la
 copia DESCIFRADA); `compare_encryption` lo verifica. Integridad compara
 contenido de adjuntos y valores de formulario.
 
-Aviso visible: texto revisado el 21-nov-2026 (`docs/aviso-visible.md`
-explica cada cambio); falta el visto bueno del editor. La composición se
+Aviso visible: texto revisado y aprobado por el usuario el 21-nov-2026
+(`docs/aviso-visible.md` explica cada cambio). La composición se
 ajusta al tamaño de página (`layout_pdf_notice`).
 
 GUI: `gui.py` en pestañas con hoja de estilos `STYLE`; el usuario rechaza el

@@ -161,8 +161,6 @@ impide sellar.
   confirma que PDF/A-1b, 2b y 3b y PDF/UA-1 reales siguen conformes tras
   sellar.
 - La firma del manifiesto prueba quién firmó, no cuándo.
-- El texto del aviso visible se revisó el 21-nov-2026 y está pendiente del
-  visto bueno del editor (`docs/aviso-visible.md` explica cada cambio).
 
 ## Desarrollo
 

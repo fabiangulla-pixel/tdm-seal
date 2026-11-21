@@ -32,7 +32,7 @@ propósito. El XMP u OPF declara el Text-Code de la **obra original**, que es
 el que identifica la obra; la validación `iscc_content_stable` queda
 `SKIPPED` con una explicación.
 
-## Plantilla de texto (revisada el 21-nov-2026; falta el visto bueno del editor)
+## Plantilla de texto (revisada y aprobada por el editor el 21-nov-2026)
 
 Vive en un solo lugar: `src/tdmseal/notice.py` (constantes `NOTICE_*`).
 Variables: `{editorial}`, `{contacto}` (correo de derechos o sitio web),
