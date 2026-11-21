@@ -60,7 +60,7 @@ verificó con clics y tecleo reales (pywinauto + `SendInput`, no llamadas
 directas a métodos de Python) contra el `.exe` compilado, no solo contra el
 script sin congelar — probar solo lo segundo NO habría detectado este bug.
 
-## Estado (v1.2.0, 20-nov-2026)
+## Estado (v1.3.0, 21-nov-2026)
 
 Hoja de ruta v0.5–v1.0 completa y validada con herramientas reales.
 Herramientas instaladas en `%LOCALAPPDATA%\TDMSeal\tools` (Java 21,
@@ -94,7 +94,13 @@ invocado desde `tests/integration/pyhanko_helper.py`; NO es dependencia.
 `LTA_UPDATES` y da la firma por válida, incluso la de certificación. El
 camino de reescritura con pikepdf sigue para todo lo no firmado.
 
-Pendiente: revisión de estilo del aviso (`notice.py`).
+Cifrado: `save_pdf` usa `encryption=True` (sin eso pikepdf entrega la
+copia DESCIFRADA); `compare_encryption` lo verifica. Integridad compara
+contenido de adjuntos y valores de formulario.
+
+Aviso visible: texto revisado el 21-nov-2026 (`docs/aviso-visible.md`
+explica cada cambio); falta el visto bueno del editor. La composición se
+ajusta al tamaño de página (`layout_pdf_notice`).
 
 GUI: `gui.py` en pestañas con hoja de estilos `STYLE`; el usuario rechaza el
 aspecto nativo sin estilizar. Para revisarla, capturas offscreen con
@@ -143,8 +149,8 @@ veraPDF vive ahora en `%LOCALAPPDATA%\TDMSeal\tools\verapdf` (el antiguo
 - Hoja de ruta v0.5–v1.0 (ISCC de contenido, EPUB, `tdmseal site`, ODRL
   completo, AIPREF, aviso visible, manifiesto, 1.0): ver el prompt de la
   sesión del 19-nov-2026 y las decisiones que se tomen en cada fase.
-- Fixtures reales que aún faltan: PDF/A-4 (Ghostscript no lo genera),
-  cifrados, con adjuntos y formularios (PDF/A-1b/2b/3b, PDF/UA-1 y firmados
-  ya se prueban con archivos reales: ver "Estado").
+- Fixture real que aún falta: PDF/A-4 (Ghostscript no lo genera). Ya se
+  prueban con archivos reales PDF/A-1b/2b/3b (también con XML adjunto),
+  PDF/UA-1, firmados, cifrados, con adjuntos y con formularios.
 - Reemplazar el esquema de extensión PDF/A redactado por el oficial de la
   PDF Association cuando alguien lo descargue a mano.

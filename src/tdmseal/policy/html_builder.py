@@ -125,21 +125,23 @@ def build_policy_html(
 <p><strong>{name}</strong></p>
 
 <div class="resumen">
-<p><strong>En resumen:</strong> {name} reserva sus derechos de minería de
-textos y datos sobre sus publicaciones. La reserva <strong>no es una negativa
-definitiva, sino una invitación a pedir licencia</strong>. Si quiere usar
-nuestras obras para minería de textos, construir corpus o entrenar sistemas de
-inteligencia artificial, escríbanos a {contact}.</p>
+<p><strong>En resumen:</strong> {name} se reserva expresamente el derecho a
+autorizar la minería de textos y datos sobre sus publicaciones. La reserva
+<strong>no excluye esos usos: es una invitación a pedir licencia</strong>. Si
+quiere usar nuestras obras para minería de textos, para construir corpus o para
+entrenar sistemas de inteligencia artificial, escríbanos a {contact}.</p>
 </div>
 
 <h2>1. Qué reservamos</h2>
 <p>Salvo que una obra o colección indique lo contrario mediante una licencia
-específica, {name} reserva los derechos de minería de textos y datos sobre los
-contenidos respecto de los cuales está facultada para hacerlo. La reserva
-comprende el uso sistemático o automatizado de los contenidos para minería de
-textos y datos, la recolección masiva para construir corpus, el entrenamiento
-o ajuste de modelos de inteligencia artificial y la construcción de conjuntos
-de datos de entrenamiento, evaluación o validación.</p>
+específica, {name} se reserva el derecho a autorizar la minería de textos y
+datos sobre los contenidos respecto de los cuales está facultada para hacerlo.
+La reserva comprende el uso sistemático o automatizado de los contenidos para
+minería de textos y datos, la recolección masiva para construir corpus, el
+entrenamiento o ajuste de modelos de inteligencia artificial, la construcción
+de conjuntos de datos de entrenamiento, evaluación o validación, y el uso de
+los contenidos como fuente que esos sistemas consultan al generar
+respuestas.</p>
 
 <h2>2. Cómo obtener una licencia</h2>
 <table>
@@ -177,8 +179,10 @@ artificial.</p>
 permita sin autorización del titular.</p>
 
 <h2 lang="en">Summary in English</h2>
-<p lang="en">{name} reserves its text and data mining rights. This is an
-invitation to license, not a final refusal. Research use:
+<p lang="en">{name} expressly reserves the right to authorize text and data
+mining of its publications, including AI training and use as a source for
+AI-generated answers. The reservation does not rule out such uses: it is an
+invitation to license. Research use:
 {TERMS_EN[research]}. Other uses, including commercial use and AI training:
 {TERMS_EN[non_research]}. Contact: {contact}.</p>
 

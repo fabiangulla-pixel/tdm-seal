@@ -10,7 +10,7 @@ todas las vías que hoy existen, y genera la política con la que invita a
 licenciar. **No es DRM ni un bloqueo técnico:** es una señal declarativa,
 legible por máquinas y por personas.
 
-**Versión 1.2.0.** Guía rápida para editoriales:
+**Versión 1.3.0.** Guía rápida para editoriales:
 [Cómo reservar su catálogo frente al entrenamiento de IA en 10 minutos](docs/guia-10-minutos.md).
 
 ## Qué hace
@@ -161,8 +161,8 @@ impide sellar.
   confirma que PDF/A-1b, 2b y 3b y PDF/UA-1 reales siguen conformes tras
   sellar.
 - La firma del manifiesto prueba quién firmó, no cuándo.
-- El texto del aviso visible está pendiente de revisión de estilo
-  (`docs/aviso-visible.md`).
+- El texto del aviso visible se revisó el 21-nov-2026 y está pendiente del
+  visto bueno del editor (`docs/aviso-visible.md` explica cada cambio).
 
 ## Desarrollo
 

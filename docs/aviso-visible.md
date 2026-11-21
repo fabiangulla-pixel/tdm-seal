@@ -32,34 +32,62 @@ propósito. El XMP u OPF declara el Text-Code de la **obra original**, que es
 el que identifica la obra; la validación `iscc_content_stable` queda
 `SKIPPED` con una explicación.
 
-## Plantilla de texto — PENDIENTE DE REVISIÓN DE ESTILO
+## Plantilla de texto (revisada el 21-nov-2026; falta el visto bueno del editor)
 
 Vive en un solo lugar: `src/tdmseal/notice.py` (constantes `NOTICE_*`).
 Variables: `{editorial}`, `{contacto}` (correo de derechos o sitio web),
 `{politica}` (URL de la política; la línea se omite si no hay).
 
-**Título:** Reserva de derechos de minería de textos y datos
+**Título:** Reserva de derechos: minería de textos y datos e inteligencia
+artificial
 
-> {editorial} reserva los derechos de minería de textos y datos sobre esta
-> obra, incluido su uso para entrenar o alimentar sistemas de inteligencia
-> artificial, conforme a la legislación aplicable. Esta reserva no es una
-> negativa definitiva: si desea usar la obra con esos fines, puede solicitar
-> una licencia a {contacto}.
+> {editorial} se reserva expresamente el derecho a autorizar la minería de
+> textos y datos sobre esta obra, incluido su uso para entrenar sistemas de
+> inteligencia artificial o para que estos la consulten al generar
+> respuestas, conforme a la legislación aplicable. La reserva no excluye esos
+> usos: quien desee emplear la obra con tales fines puede solicitar una
+> licencia a {contacto}.
+>
+> Esta reserva consta también en los metadatos del archivo, en un formato
+> legible por máquina (protocolo TDMRep del W3C).
 >
 > Condiciones de licencia: {politica}
 
-**Title:** Text and data mining rights reserved
+**Title:** Rights reservation: text and data mining and artificial
+intelligence
 
-> {editorial} reserves its text and data mining rights over this work,
-> including its use to train or feed artificial intelligence systems. This
-> is an invitation to license, not a final refusal: to request a license,
-> contact {contacto}.
+> {editorial} expressly reserves the right to authorize text and data mining
+> of this work, including its use to train artificial intelligence systems or
+> as a source they consult when generating answers, as permitted by
+> applicable law. The reservation does not rule out such uses: anyone wishing
+> to use the work for these purposes may request a license from {contacto}.
+>
+> This reservation is also stated in the file's metadata in machine-readable
+> form (W3C TDMRep protocol).
 >
 > Licensing terms: {politica}
 
-Notas para la revisión:
-- "conforme a la legislación aplicable" evita citar una norma concreta
-  (Directiva UE 2019/790, Decisión Andina 351, etc.), porque el catálogo
-  puede circular en varias jurisdicciones. Si se prefiere citar una, se
-  cambia en esa frase.
-- El texto en inglés es una traducción funcional, no literal.
+Cambios de la revisión y por qué:
+- **"se reserva expresamente el derecho a autorizar"** (antes "reserva los
+  derechos"): fórmula jurídica usual en español y eco del requisito de
+  reserva *expresa* del art. 4.3 de la Directiva (UE) 2019/790.
+- **"o para que estos la consulten al generar respuestas"** (antes
+  "alimentar", vago): cubre de forma explícita la consulta en el momento de
+  responder (RAG), no solo el entrenamiento.
+- **"La reserva no excluye esos usos: quien desee…"** (antes "no es una
+  negativa definitiva: si desea…"): más natural, e impersonal, para no
+  elegir entre tú y usted ante un lector desconocido.
+- **Frase nueva sobre los metadatos legibles por máquina**: la ley pide la
+  reserva "por medios adecuados, como los de lectura mecánica"; la página
+  remite a esa declaración, que es la que leen los rastreadores.
+- "conforme a la legislación aplicable" se mantiene: el catálogo puede
+  circular en varias jurisdicciones (Directiva UE 2019/790, Decisión Andina
+  351…). Si se prefiere citar una norma, se cambia en esa frase.
+- La política HTML (`tdmseal policy build`) usa las mismas fórmulas.
+
+## Composición en la página
+
+El cuerpo empieza en 10,5 pt y baja hasta 7 pt si hace falta para que el
+aviso quepa (A4, A5, 6×9 in y formato de bolsillo caben con los dos
+idiomas). En una página más pequeña se deja solo el español y se advierte.
+La URL de la política va en línea propia y solo se corta tras una barra.

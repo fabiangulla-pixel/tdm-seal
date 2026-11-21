@@ -15,31 +15,43 @@ En PDF etiquetados (no PDF/UA) la página se marca como *Artifact* para no
 alterar el árbol de estructura; se avisa de que los lectores de pantalla
 pueden omitirla.
 
-PLANTILLA DE TEXTO: pendiente de revisión de estilo por el editor
-(ver docs/aviso-visible.md). Se mantiene en este único lugar para que la
-revisión sea un cambio de una sola constante.
+PLANTILLA DE TEXTO: revisada el 21-nov-2026 (ver docs/aviso-visible.md);
+pendiente del visto bueno del editor. Se mantiene en este único lugar para
+que cualquier cambio sea una sola constante.
 """
 
 from __future__ import annotations
 
+import re
 import textwrap
 from dataclasses import dataclass
 from html import escape
 
-NOTICE_TITLE_ES = "Reserva de derechos de minería de textos y datos"
-NOTICE_TITLE_EN = "Text and data mining rights reserved"
+NOTICE_TITLE_ES = "Reserva de derechos: minería de textos y datos e inteligencia artificial"
+NOTICE_TITLE_EN = "Rights reservation: text and data mining and artificial intelligence"
 
 NOTICE_ES = (
-    "{editorial} reserva los derechos de minería de textos y datos sobre esta obra, "
-    "incluido su uso para entrenar o alimentar sistemas de inteligencia artificial, "
-    "conforme a la legislación aplicable. Esta reserva no es una negativa definitiva: "
-    "si desea usar la obra con esos fines, puede solicitar una licencia a {contacto}."
+    "{editorial} se reserva expresamente el derecho a autorizar la minería de textos y "
+    "datos sobre esta obra, incluido su uso para entrenar sistemas de inteligencia "
+    "artificial o para que estos la consulten al generar respuestas, conforme a la "
+    "legislación aplicable. La reserva no excluye esos usos: quien desee emplear la obra "
+    "con tales fines puede solicitar una licencia a {contacto}."
+)
+NOTICE_MACHINE_ES = (
+    "Esta reserva consta también en los metadatos del archivo, en un formato legible por "
+    "máquina (protocolo TDMRep del W3C)."
 )
 NOTICE_POLICY_ES = "Condiciones de licencia: {politica}"
 NOTICE_EN = (
-    "{editorial} reserves its text and data mining rights over this work, including "
-    "its use to train or feed artificial intelligence systems. This is an invitation "
-    "to license, not a final refusal: to request a license, contact {contacto}."
+    "{editorial} expressly reserves the right to authorize text and data mining of this "
+    "work, including its use to train artificial intelligence systems or as a source they "
+    "consult when generating answers, as permitted by applicable law. The reservation does "
+    "not rule out such uses: anyone wishing to use the work for these purposes may request "
+    "a license from {contacto}."
+)
+NOTICE_MACHINE_EN = (
+    "This reservation is also stated in the file's metadata in machine-readable form "
+    "(W3C TDMRep protocol)."
 )
 NOTICE_POLICY_EN = "Licensing terms: {politica}"
 
@@ -57,8 +69,8 @@ class NoticeOptions:
     def paragraphs(self) -> list[tuple[str, list[str]]]:
         """[(título, [párrafos])] en español y, si se pide, en inglés."""
         values = {"editorial": self.editorial, "contacto": self.contact}
-        es = [NOTICE_ES.format(**values)]
-        en = [NOTICE_EN.format(**values)]
+        es = [NOTICE_ES.format(**values), NOTICE_MACHINE_ES]
+        en = [NOTICE_EN.format(**values), NOTICE_MACHINE_EN]
         if self.policy_url:
             es.append(NOTICE_POLICY_ES.format(politica=self.policy_url))
             en.append(NOTICE_POLICY_EN.format(politica=self.policy_url))
@@ -146,6 +158,12 @@ def add_pdf_notice_page(pdf, options: NoticeOptions) -> list[str]:
             )
         )
 
+    if layout_pdf_notice(options, width, height)[4]:
+        warnings.append(
+            "La página es pequeña: el aviso visible se puso solo en español (el texto en "
+            "inglés no cabía)."
+        )
+
     page = pdf.add_blank_page(page_size=(width, height))
     page.obj["/Resources"] = pikepdf.Dictionary(
         Font=pikepdf.Dictionary(F1=font("/Helvetica"), F2=font("/Helvetica-Bold"))
@@ -164,21 +182,75 @@ def _pdf_string(text: str) -> bytes:
     return b"(" + raw.replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)") + b")"
 
 
+def _wrap_url(url: str, width: int) -> list[str]:
+    """Parte una URL solo tras «/» (nunca en guiones ni a mitad de palabra si se puede)."""
+    lines, current = [], ""
+    for part in re.split(r"(?<=/)", url):
+        while len(part) > width:  # segmento más largo que la línea: corte duro inevitable
+            if current:
+                lines.append(current)
+                current = ""
+            lines.append(part[:width])
+            part = part[width:]
+        if len(current) + len(part) > width:
+            lines.append(current)
+            current = part
+        else:
+            current += part
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _wrap_blocks(blocks, size: float, text_width: float) -> list[tuple[str, bool]]:
+    # Anchos medios de Helvetica (~0,5 em) y Helvetica-Bold (~0,58 em, título 1,5 pt mayor).
+    chars_per_line = max(20, int(text_width / (size * 0.5)))
+    title_chars = max(16, int(text_width / ((size + 1.5) * 0.58)))
+    lines: list[tuple[str, bool]] = []
+    for title, paragraphs in blocks:
+        lines.extend((ln, True) for ln in textwrap.wrap(title, title_chars))
+        lines.append(("", False))
+        for paragraph in paragraphs:
+            label, sep, url = paragraph.partition(": http")
+            if sep:  # «Condiciones de licencia: URL» -> etiqueta y URL en líneas propias
+                lines.append((label + ":", False))
+                lines.extend((ln, False) for ln in _wrap_url("http" + url, chars_per_line))
+            else:
+                lines.extend((ln, False) for ln in textwrap.wrap(paragraph, chars_per_line))
+            lines.append(("", False))
+        lines.append(("", False))
+    while lines and not lines[-1][0]:
+        lines.pop()
+    return lines
+
+
+def layout_pdf_notice(options: NoticeOptions, width: float, height: float):
+    """Elige margen y cuerpo para que el aviso quepa en la página.
+
+    Devuelve (margen, cuerpo, interlineado, líneas, se_omitió_el_inglés). Prueba
+    de 10,5 pt hacia abajo hasta 7 pt; si ni así cabe (páginas muy pequeñas),
+    deja solo el bloque en español.
+    """
+    margin = max(24.0, min(56.0, width * 0.1))
+    blocks = options.paragraphs()
+    for drop_english in (False, True):
+        current = blocks[:1] if drop_english else blocks
+        size = 10.5
+        while size >= 7.0:
+            leading = round(size * 1.38, 2)
+            lines = _wrap_blocks(current, size, width - 2 * margin)
+            if len(lines) * leading <= height - 2 * margin:
+                return margin, size, leading, lines, drop_english and len(blocks) > 1
+            size -= 0.5
+    # Último recurso: 7 pt sin inglés aunque desborde (no debería pasar en libros reales).
+    return margin, 7.0, 9.66, _wrap_blocks(blocks[:1], 7.0, width - 2 * margin), len(blocks) > 1
+
+
 def build_pdf_notice_stream(
     options: NoticeOptions, width: float, height: float, as_artifact: bool
 ) -> bytes:
     """Operadores de contenido de la página de aviso (Helvetica, WinAnsiEncoding)."""
-    margin = 56.0
-    size, leading = 10.5, 14.5
-    chars_per_line = max(30, int((width - 2 * margin) / (size * 0.5)))
-    lines: list[tuple[str, bool]] = []
-    for title, paragraphs in options.paragraphs():
-        lines.append((title, True))
-        lines.append(("", False))
-        for paragraph in paragraphs:
-            lines.extend((ln, False) for ln in textwrap.wrap(paragraph, chars_per_line))
-            lines.append(("", False))
-        lines.append(("", False))
+    margin, size, leading, lines, _ = layout_pdf_notice(options, width, height)
 
     ops = [b"/Artifact BMC" if as_artifact else b"", b"BT"]
     ops.append(f"{leading} TL {margin} {height - margin} Td".encode())

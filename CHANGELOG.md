@@ -27,6 +27,18 @@
   (`encryption_preserved`); si se perdiera, el sellado falla.
 - Los adjuntos en un árbol de nombres con `/Kids` no se contaban (la
   comprobación decía 0 antes y 0 después).
+- **La página de aviso desbordaba en libros pequeños** (A5, bolsillo): el
+  texto salía por debajo del borde. Ahora el cuerpo se ajusta (10,5 a 7 pt)
+  y, si ni así cabe, queda solo el español con una advertencia. El título se
+  parte en líneas y la URL de la política solo se corta tras «/».
+
+### Cambiado
+
+- **Texto del aviso visible y de la política HTML revisado** (ver
+  `docs/aviso-visible.md`): "se reserva expresamente el derecho a
+  autorizar…", mención explícita del uso como fuente de respuestas de IA
+  (RAG), forma impersonal y una frase que remite a la declaración legible
+  por máquina (TDMRep). Pendiente del visto bueno del editor.
 
 ## [1.2.0] - 2026-11-20
 

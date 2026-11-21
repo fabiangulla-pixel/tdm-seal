@@ -45,7 +45,8 @@ def _page_text(path, index: int) -> str:
     pdfium = pytest.importorskip("pypdfium2")
     doc = pdfium.PdfDocument(str(path))
     try:
-        return doc[index].get_textpage().get_text_bounded()
+        # Los títulos largos ocupan varias líneas: se normalizan los saltos.
+        return " ".join(doc[index].get_textpage().get_text_bounded().split())
     finally:
         doc.close()
 
