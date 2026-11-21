@@ -341,6 +341,15 @@ class MainWindow(QMainWindow):
         self.chk_notice.toggled.connect(self._confirm_notice)
         layout.addWidget(self.chk_notice)
 
+        self.chk_signed = QCheckBox("Sellar también PDF ya firmados (sin invalidar la firma)")
+        self.chk_signed.setToolTip(
+            "Lo ideal es sellar antes de firmar. Si el PDF ya está firmado, el sello se "
+            "añade al final del archivo sin tocar los bytes firmados: la firma sigue "
+            "siendo válida, aunque algunos lectores avisarán de cambios posteriores a la "
+            "firma (solo metadatos). Desactivado: los PDF firmados se omiten."
+        )
+        layout.addWidget(self.chk_signed)
+
         self.table = QTableWidget(0, len(COLUMNS))
         self.table.setHorizontalHeaderLabels(COLUMNS)
         self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
@@ -818,7 +827,10 @@ class MainWindow(QMainWindow):
             return
 
         config = SealConfig(
-            policy=policy, compute_iscc=self.chk_iscc.isChecked(), aipref=self.current_aipref()
+            policy=policy,
+            compute_iscc=self.chk_iscc.isChecked(),
+            aipref=self.current_aipref(),
+            force_signed=self.chk_signed.isChecked(),
         )
         publisher = self._current_publisher()
         if self.chk_notice.isChecked():

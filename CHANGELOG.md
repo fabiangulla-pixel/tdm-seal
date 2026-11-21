@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.3.0] - 2026-11-21
+
+### Añadido
+
+- **Sellar PDF ya firmados sin invalidar la firma.** `--force-signed` (y la
+  casilla nueva de la GUI "Sellar también PDF ya firmados") añade el sello
+  como actualización incremental (`pdf/incremental.py`): los bytes
+  firmados no cambian. Comprobado con pyHanko: firmas de aprobación y de
+  certificación siguen válidas (cambio de nivel `LTA_UPDATES`), con xref
+  clásica y con stream `/XRef`, y un PDF/A-2b firmado sigue conforme en
+  veraPDF. Por defecto los firmados se siguen omitiendo (`TDM021`), ahora
+  con un mensaje que explica esta opción.
+
 ## [1.2.0] - 2026-11-20
 
 PDF/UA y PDF firmados probados con archivos reales, no con dobles.

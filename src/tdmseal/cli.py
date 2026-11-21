@@ -56,7 +56,12 @@ def main() -> None:
 @click.option("--policy", "policy_url", default=None, help="URL de la política TDM (opcional).")
 @click.option("--recursive", is_flag=True, help="Procesar subcarpetas si TARGET es una carpeta.")
 @click.option("--suffix", default="_TDM", show_default=True, help="Sufijo del archivo de salida.")
-@click.option("--force-signed", is_flag=True, help="PELIGROSO: modifica PDF con firma digital.")
+@click.option(
+    "--force-signed",
+    is_flag=True,
+    help="Sella también PDF firmados, como actualización incremental que no invalida "
+    "la firma (algunos lectores avisarán de cambios posteriores a la firma).",
+)
 @click.option("--allow-encrypted", is_flag=True, help="Permite procesar PDF cifrados.")
 @click.option("--publisher-name", default=None, help="Nombre de la editorial (para el reporte).")
 @click.option("--publisher-acronym", default=None)

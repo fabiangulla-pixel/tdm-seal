@@ -74,6 +74,24 @@ def sign(mode: str, src: Path, out: Path, keys: Path) -> None:
             signers.sign_pdf(writer, meta, signer=signer, output=outf)
 
 
+def detail(path: Path, keys: Path) -> str:
+    """'intacta=… nivel=… docmdp_ok=… veredicto=…' para la primera firma."""
+    from pyhanko.keys import load_cert_from_pemder
+    from pyhanko.pdf_utils.reader import PdfFileReader
+    from pyhanko.sign.validation import validate_pdf_signature
+    from pyhanko_certvalidator import ValidationContext
+
+    _, cert_path = _make_keys(keys)
+    context = ValidationContext(trust_roots=[load_cert_from_pemder(str(cert_path))])
+    with path.open("rb") as f:
+        status = validate_pdf_signature(PdfFileReader(f).embedded_signatures[0], context)
+        level = status.modification_level.name if status.modification_level else None
+        return (
+            f"intacta={status.intact} valida={status.valid} nivel={level} "
+            f"docmdp_ok={status.docmdp_ok} veredicto={status.bottom_line}"
+        )
+
+
 def verify(path: Path, keys: Path) -> str:
     from pyhanko.keys import load_cert_from_pemder
     from pyhanko.pdf_utils.reader import PdfFileReader
@@ -94,5 +112,7 @@ if __name__ == "__main__":
     command = sys.argv[1]
     if command == "verify":
         print(verify(Path(sys.argv[2]), Path(sys.argv[3])))
+    elif command == "detail":
+        print(detail(Path(sys.argv[2]), Path(sys.argv[3])))
     else:
         sign(command, Path(sys.argv[2]), Path(sys.argv[3]), Path(sys.argv[4]))

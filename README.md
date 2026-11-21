@@ -140,10 +140,14 @@ sellado (existe la salida; se omite sin sobrescribir). Al recorrer una
 carpeta se ignoran los `*_TDM.*`, así que se puede volver a sellar la misma
 carpeta tras añadir libros nuevos.
 
-**PDF firmados:** selle *antes* de firmar. `--force-signed` sella igual,
-pero la firma de la copia sellada deja de ser válida (comprobado con firmas
-reales) y el programa lo advierte; el original no se toca. Un campo de firma
-vacío (para firmar después) no impide sellar.
+**PDF firmados:** por defecto se omiten (`TDM021`); lo ideal es sellar
+*antes* de firmar. Si ya están firmados, `--force-signed` (en la GUI,
+"Sellar también PDF ya firmados") añade el sello como **actualización
+incremental**: los bytes firmados no cambian y la firma sigue siendo válida
+(comprobado con firmas reales, de aprobación y de certificación, y con un
+PDF/A-2b firmado que sigue conforme). Algunos lectores indicarán que hubo
+cambios después de firmar (solo metadatos). Un campo de firma vacío no
+impide sellar.
 
 ## Limitaciones conocidas
 

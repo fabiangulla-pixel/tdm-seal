@@ -72,3 +72,24 @@ def test_gui_row_tooltip_explains_skip(qtbot, make_signed_pdf):
     tooltip = window.table.item(0, 5).toolTip()
     assert "firmas digitales" in tooltip
     assert "Validadores externos" in window.tools_label.text()
+
+
+def test_gui_can_seal_signed_pdf_incrementally(qtbot, make_signed_pdf):
+    import pytest
+
+    pytest.importorskip("PySide6")
+    import tdmseal.gui as gui_module
+
+    path = make_signed_pdf("firmado.pdf")
+    window = gui_module.MainWindow()
+    qtbot.addWidget(window)
+    window._load_paths([path])
+    qtbot.waitUntil(lambda: window.btn_audit.isEnabled(), timeout=10000)
+    window.chk_signed.setChecked(True)
+
+    window._run_seal()
+    qtbot.waitUntil(lambda: "procesados" in window.status_label.text(), timeout=10000)
+
+    sealed = path.with_name("firmado_TDM.pdf")
+    assert sealed.read_bytes().startswith(path.read_bytes())
+    assert "la firma sigue siendo válida" in window.table.item(0, 5).toolTip()

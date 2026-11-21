@@ -24,6 +24,7 @@ from tdmseal.notice import (
     write_pdf_notice_marker,
 )
 from tdmseal.pdf.docinfo import restore_inherited_info
+from tdmseal.pdf.incremental import IncrementalUpdateError, append_xmp_update
 from tdmseal.pdf.inspector import inspect_pdf, read_document_xmp_bytes
 from tdmseal.pdf.integrity import compare_docinfo, compare_non_metadata_invariants
 from tdmseal.pdf.writer import create_output_path, save_pdf, write_document_xmp_bytes
@@ -43,6 +44,38 @@ SIGNATURE_INVALIDATED_WARNING = (
     "--force-signed). El original no se tocó. Vuelva a firmar la copia sellada o, mejor, "
     "selle el documento antes de firmarlo."
 )
+SIGNED_INCREMENTAL_WARNING = (
+    "PDF firmado: el sello se añadió como actualización incremental, sin tocar los bytes "
+    "firmados, así que la firma sigue siendo válida. Algunos lectores indicarán que el "
+    "documento recibió cambios después de firmarse (solo metadatos)."
+)
+
+
+def _rewrite_pdf(
+    pdf: pikepdf.Pdf,
+    input_path: Path,
+    output_path: Path,
+    xmp_bytes: bytes,
+    config: SealConfig,
+    notice_added: bool,
+) -> list[str]:
+    """Guarda el PDF completo con el XMP nuevo (caso normal, no firmado). Devuelve avisos."""
+    warnings: list[str] = []
+    write_document_xmp_bytes(pdf, xmp_bytes)
+    if notice_added:
+        warnings.extend(add_pdf_notice_page(pdf, config.notice))
+        warnings.append(
+            f"Se añadió una página final de aviso (página {len(pdf.pages)}); "
+            "las páginas existentes no se modificaron."
+        )
+    if restore_inherited_info(pdf, input_path):
+        warnings.append(
+            "El último tráiler del PDF no declaraba /Info (actualización "
+            "incremental); se volvió a enlazar el diccionario Info heredado "
+            "para no perder título, autor ni asunto."
+        )
+    save_pdf(pdf, output_path)
+    return warnings
 
 
 def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
@@ -68,9 +101,9 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
             reason_code="TDM021",
             before=before,
             errors=[
-                "El PDF contiene una o más firmas digitales. Modificar sus metadatos "
-                "puede invalidarlas. El archivo no será alterado. Aplique TDM Seal "
-                "antes de firmar el documento."
+                "El PDF contiene una o más firmas digitales y no se alteró. Lo ideal es "
+                "sellar antes de firmar; si ya está firmado, la opción «sellar también PDF "
+                "firmados» (--force-signed) añade el sello sin invalidar la firma."
             ],
         )
 
@@ -111,11 +144,9 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
     validations: dict = {}
     notice_added = False
 
-    if before.signed:
-        # Solo se llega aquí con --force-signed. Comprobado con firmas reales de
-        # pyHanko: el PDF sellado se reescribe entero y la firma deja de validar.
-        validations["signature_preserved"] = "FAIL"
-        warnings.append(SIGNATURE_INVALIDATED_WARNING)
+    # Solo se llega aquí firmado con --force-signed: en vez de reescribir el PDF
+    # (lo que invalida la firma) se añade una actualización incremental.
+    incremental = before.signed
 
     iscc_input = None
     if config.compute_iscc:
@@ -152,23 +183,21 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
                     notice_added = True
 
             new_xmp_bytes = serialize_xmp(xmp_tree)
-            write_document_xmp_bytes(pdf, new_xmp_bytes)
-
-            if notice_added:
-                warnings.extend(add_pdf_notice_page(pdf, config.notice))
-                warnings.append(
-                    f"Se añadió una página final de aviso (página {len(pdf.pages)}); "
-                    "las páginas existentes no se modificaron."
+            if not incremental:
+                warnings.extend(
+                    _rewrite_pdf(pdf, input_path, output_path, new_xmp_bytes, config, notice_added)
                 )
-
-            if restore_inherited_info(pdf, input_path):
-                warnings.append(
-                    "El último tráiler del PDF no declaraba /Info (actualización "
-                    "incremental); se volvió a enlazar el diccionario Info heredado "
-                    "para no perder título, autor ni asunto."
-                )
-
-            save_pdf(pdf, output_path)
+        if incremental:
+            append_xmp_update(input_path, output_path, new_xmp_bytes)
+    except IncrementalUpdateError as exc:
+        return SealResult(
+            input_path=input_path,
+            output_path=None,
+            status="failed",
+            reason_code="TDM002",
+            before=before,
+            errors=[f"No se pudo sellar el PDF firmado sin invalidar la firma: {exc}"],
+        )
     except (pikepdf.PdfError, OSError) as exc:
         return SealResult(
             input_path=input_path,
@@ -178,6 +207,11 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
             before=before,
             errors=[f"No se pudo escribir el PDF sellado: {exc}"],
         )
+
+    if incremental:
+        preserved = output_path.read_bytes().startswith(input_path.read_bytes())
+        validations["signature_preserved"] = "PASS" if preserved else "FAIL"
+        warnings.append(SIGNED_INCREMENTAL_WARNING if preserved else SIGNATURE_INVALIDATED_WARNING)
 
     tdm_result = verify_tdmrep_by_rereading(output_path, config.policy)
     validations["xmp_re_read"] = tdm_result["status"]

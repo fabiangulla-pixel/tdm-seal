@@ -87,8 +87,12 @@ PDF/UA real: `_build_pdfua` en `test_real_tools.py` (Ghostscript con
 veraPDF `--flavour ua1` lo da por conforme. Firmas reales: pyHanko en un
 venv aparte (`%USERPROFILE%\.venvs\pyhanko-ref`, o `TDMSEAL_PYHANKO_PY`),
 invocado desde `tests/integration/pyhanko_helper.py`; NO es dependencia.
-`--force-signed` rompe la firma (reescritura completa); un modo incremental
-que la conservara sería una mejora posible, no hecha.
+`--force-signed` sella PDF firmados con una actualización incremental
+(`pdf/incremental.py`): los bytes originales quedan como prefijo exacto
+(`signature_preserved`), la xref nueva es del mismo tipo que la última
+(tabla o stream) y el XMP va sin comprimir. pyHanko lo califica
+`LTA_UPDATES` y da la firma por válida, incluso la de certificación. El
+camino de reescritura con pikepdf sigue para todo lo no firmado.
 
 Pendiente: revisión de estilo del aviso (`notice.py`).
 

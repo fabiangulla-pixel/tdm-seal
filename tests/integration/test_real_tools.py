@@ -18,6 +18,7 @@ from tdmseal.config import SealConfig
 from tdmseal.documents import seal_document
 from tdmseal.models import TDMPolicy
 from tdmseal.notice import NoticeOptions
+from tdmseal.samples import SAMPLE_TEXT, build_text_pdf
 from tdmseal.validation.epubcheck_validator import epubcheck_errors
 from tdmseal.validation.verapdf_validator import run_verapdf
 
@@ -57,14 +58,13 @@ def test_sealed_epub_passes_epubcheck(make_epub, version, with_notice):
     assert epubcheck_errors(result.output_path, cmd) == set()
 
 
-@pytest.mark.parametrize("part", [1, 2, 3])
-def test_sealed_real_pdfa_stays_compliant(make_text_pdf, tmp_path, part):
-    gs = _ghostscript()
+def _pdfa_from(gs: Path, tmp_path: Path, part: int) -> Path:
+    """PDF/A-`part`b real generado con Ghostscript a partir de un PDF de texto."""
     icc = (gs / "iccprofiles" / "srgb.icc").as_posix()
     pdfa_def = (gs / "lib" / "PDFA_def.ps").read_text(encoding="latin-1")
     def_path = tmp_path / "PDFA_def.ps"
     def_path.write_text(pdfa_def.replace("(srgb.icc)", f"({icc})"), encoding="latin-1")
-    src = make_text_pdf("src.pdf", title="Libro PDF/A")
+    src = build_text_pdf(tmp_path / "pdfa_src.pdf", SAMPLE_TEXT, title="Libro PDF/A")
     pdfa = tmp_path / f"libro_pdfa{part}.pdf"
     subprocess.run(
         [
@@ -84,6 +84,12 @@ def test_sealed_real_pdfa_stays_compliant(make_text_pdf, tmp_path, part):
         check=True,
         capture_output=True,
     )
+    return pdfa
+
+
+@pytest.mark.parametrize("part", [1, 2, 3])
+def test_sealed_real_pdfa_stays_compliant(tmp_path, part):
+    pdfa = _pdfa_from(_ghostscript(), tmp_path, part)
     assert run_verapdf(pdfa)["status"] == "PASS"  # el original es PDF/A conforme
 
     result = seal_document(pdfa, SealConfig(policy=POLICY, compute_iscc=True))

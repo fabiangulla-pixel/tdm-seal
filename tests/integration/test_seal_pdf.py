@@ -112,8 +112,11 @@ def test_caso_h_force_signed_permite_sellar(make_signed_pdf):
 
     result = seal_pdf(pdf_path, _config(force_signed=True))
 
-    assert result.status == "success"
+    assert result.status == "success", result.warnings
     assert result.output_path.exists()
+    # Actualización incremental: los bytes originales (los firmados) quedan intactos.
+    assert result.output_path.read_bytes().startswith(pdf_path.read_bytes())
+    assert result.validations["signature_preserved"] == "PASS"
 
 
 def test_caso_i_pdf_cifrado_legible_se_omite(make_encrypted_pdf):

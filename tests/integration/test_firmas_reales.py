@@ -55,9 +55,10 @@ def _helper(*args: object) -> str:
 
 @pytest.fixture
 def signed(tmp_path, make_text_pdf):
-    def _make(mode: str) -> Path:
+    def _make(mode: str, src: Path | None = None) -> Path:
         out = tmp_path / f"{mode}.pdf"
-        _helper(mode, make_text_pdf("src.pdf", title="Firmado"), out, tmp_path / "claves")
+        src = src or make_text_pdf("src.pdf", title="Firmado")
+        _helper(mode, src, out, tmp_path / "claves")
         return out
 
     return _make
@@ -85,15 +86,51 @@ def test_empty_signature_field_is_sealed(signed):
     assert result.status == "success", result.warnings
 
 
-def test_forced_seal_warns_that_signature_is_broken(signed, tmp_path, monkeypatch):
-    """--force-signed invalida la firma (comprobado con pyHanko) y debe decirlo claro."""
-    monkeypatch.setattr(cli_module, "load_defaults", lambda *a, **k: AppDefaults())
-    path = signed("sign")
+@pytest.mark.parametrize("mode", ["sign", "certify"])
+@pytest.mark.parametrize("xref_streams", [False, True])
+def test_forced_seal_keeps_signature_valid(
+    signed, tmp_path, monkeypatch, make_text_pdf, mode, xref_streams
+):
+    """--force-signed sella con una actualización incremental y la firma sigue válida.
 
-    out = CliRunner().invoke(cli_module.main, ["seal", str(path), "--force-signed"])
+    pyHanko clasifica el cambio como LTA_UPDATES (el nivel más benigno, el de
+    un sello de tiempo) y lo admite incluso en una firma de certificación.
+    """
+    import pikepdf
+
+    monkeypatch.setattr(cli_module, "load_defaults", lambda *a, **k: AppDefaults())
+    src = make_text_pdf("src.pdf", title="Firmado")
+    if xref_streams:
+        with pikepdf.open(src, allow_overwriting_input=True) as pdf:
+            pdf.save(src, object_stream_mode=pikepdf.ObjectStreamMode.generate)
+    path = signed(mode, src)
+
+    out = CliRunner().invoke(cli_module.main, ["seal", str(path), "--force-signed", "--iscc"])
 
     assert out.exit_code == 0, out.output
-    assert "firma digital del original NO es válida" in out.output
-    sealed = tmp_path / "sign_TDM.pdf"
-    assert _helper("verify", sealed, tmp_path / "claves") == "broken"
-    assert _helper("verify", path, tmp_path / "claves") == "intact"  # el original, intacto
+    assert "1 correctos" in out.output
+    assert "la firma sigue siendo válida" in out.output
+    sealed = tmp_path / f"{mode}_TDM.pdf"
+    detail = _helper("detail", sealed, tmp_path / "claves")
+    assert "intacta=True valida=True" in detail
+    assert "docmdp_ok=True veredicto=True" in detail
+    assert "nivel=LTA_UPDATES" in detail
+
+
+def test_forced_seal_of_signed_pdfa_keeps_signature_and_pdfa(signed, tmp_path):
+    """PDF/A-2b firmado: el XMP existente se reemplaza en su sitio y veraPDF sigue en PASS."""
+    from tdmseal import tools
+
+    gs = tools.tools_dir() / "gs"
+    if not (gs / "bin" / "gswin64c.exe").exists() or tools.find_verapdf() is None:
+        pytest.skip("Ghostscript o veraPDF no instalados")
+    from tests.integration.test_real_tools import _pdfa_from
+
+    path = signed("sign", _pdfa_from(gs, tmp_path, 2))
+
+    result = seal_document(path, SealConfig(policy=POLICY, force_signed=True, compute_iscc=True))
+
+    assert result.status == "success", result.warnings
+    assert result.validations["signature_preserved"] == "PASS"
+    assert result.validations["verapdf"] == "PASS"
+    assert "intacta=True valida=True" in _helper("detail", result.output_path, tmp_path / "claves")
