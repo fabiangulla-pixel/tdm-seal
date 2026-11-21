@@ -389,6 +389,75 @@ def onix_build(target: Path, out_path: Path, recursive: bool, reservation: int |
     click.echo(f"[OK] {len(rows)} obra(s) -> {out_path}")
 
 
+@main.group()
+def timestamp() -> None:
+    """Sello de tiempo RFC 3161: prueba ante terceros de la fecha de la reserva."""
+
+
+@timestamp.command("create")
+@click.argument(
+    "files", nargs=-1, required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path)
+)
+@click.option(
+    "--tsa",
+    default="freetsa",
+    show_default=True,
+    help="Autoridad de sellado: freetsa, digicert, sectigo o una URL.",
+)
+def timestamp_create(files: tuple[Path, ...], tsa: str) -> None:
+    """Pide un sello de tiempo para cada archivo (lo ideal: el manifiesto del catálogo).
+
+    USA LA RED: envía a la TSA solo la huella SHA-256 de cada archivo, nunca
+    su contenido. Deja ARCHIVO.tsr (la prueba) y ARCHIVO.tsr.json (recibo).
+    """
+    from tdmseal.timestamp import TimestampError, create_timestamp, resolve_tsa
+
+    try:
+        url = resolve_tsa(tsa)
+    except ValueError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(2)
+    click.echo(f"Se enviará solo la huella SHA-256 (no el archivo) a {url}")
+    failed = 0
+    for path in files:
+        try:
+            receipt = create_timestamp(path, url)
+        except (TimestampError, OSError) as exc:
+            failed += 1
+            click.echo(f"[ERROR] {path.name}: {exc}")
+            continue
+        click.echo(f"[OK] {path.name}: sellado el {receipt.fecha_sellada_utc} (UTC)")
+        click.echo(f"     prueba -> {path.name}.tsr  (recibo: {path.name}.tsr.json)")
+    if failed:
+        sys.exit(1)
+
+
+@timestamp.command("verify")
+@click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--tsr",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Respuesta de la TSA (por defecto ARCHIVO.tsr).",
+)
+@click.option(
+    "--ca",
+    "ca_file",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Certificado raíz de la TSA (PEM) para verificar su firma.",
+)
+def timestamp_verify(file: Path, tsr: Path | None, ca_file: Path | None) -> None:
+    """Verifica sin conexión que el archivo es exactamente el que se selló."""
+    from tdmseal.timestamp import verify_timestamp
+
+    result = verify_timestamp(file, tsr, ca_file)
+    click.echo(f"[{'OK' if result.ok else 'FALLO'}] {file.name}: {result.message}")
+    click.echo(f"     Firma de la TSA: {result.signature}")
+    if not result.ok:
+        sys.exit(1)
+
+
 @main.command("selftest")
 @click.option("--dir", "workdir", type=click.Path(path_type=Path), default=None)
 def selftest_command(workdir: Path | None) -> None:

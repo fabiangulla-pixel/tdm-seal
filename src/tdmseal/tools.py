@@ -89,6 +89,29 @@ def find_epubcheck() -> list[str] | None:
     return None
 
 
+def find_openssl() -> str | None:
+    """OpenSSL (para verificar sellos de tiempo): `TDMSEAL_OPENSSL`, PATH o el de Git."""
+    env = os.environ.get("TDMSEAL_OPENSSL")
+    if env and Path(env).exists():
+        return env
+    found = shutil.which("openssl")
+    if found:
+        return found
+    if sys.platform == "win32":
+        for root in (os.environ.get("ProgramFiles"), os.environ.get("LOCALAPPDATA")):
+            if not root:
+                continue
+            for sub in (
+                "Git/usr/bin/openssl.exe",
+                "Git/mingw64/bin/openssl.exe",
+                "Programs/Git/usr/bin/openssl.exe",
+            ):
+                candidate = Path(root) / sub
+                if candidate.exists():
+                    return str(candidate)
+    return None
+
+
 def tools_status() -> dict[str, str | None]:
     """Qué herramientas encontró (para `tdmseal tools` y la GUI)."""
     verapdf = find_verapdf()
@@ -98,4 +121,5 @@ def tools_status() -> dict[str, str | None]:
         "java": find_java(),
         "verapdf": verapdf[0] if verapdf else None,
         "epubcheck": " ".join(epubcheck) if epubcheck else None,
+        "openssl": find_openssl(),
     }
