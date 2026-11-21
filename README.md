@@ -2,7 +2,8 @@
 
 > Reserva de derechos de minería de textos y datos (TDM) para PDF y EPUB
 > editoriales: dentro del archivo, ligada al contenido, en el sitio web y
-> como oferta de licencia. Gratis, de código abierto (MIT) y sin conexión.
+> como oferta de licencia. Gratis, de código abierto (MIT) y sin conexión
+> (lo que usa internet es opcional y nunca envía los libros).
 
 TDM Seal declara que una editorial **reserva sus derechos de minería de
 textos y datos**, incluido el entrenamiento de inteligencia artificial, por
@@ -10,7 +11,7 @@ todas las vías que hoy existen, y genera la política con la que invita a
 licenciar. **No es DRM ni un bloqueo técnico:** es una señal declarativa,
 legible por máquinas y por personas.
 
-**Versión 1.3.0.** Guía rápida para editoriales:
+**Versión 1.4.0.** Guía rápida para editoriales:
 [Cómo reservar su catálogo frente al entrenamiento de IA en 10 minutos](docs/guia-10-minutos.md).
 
 ## Qué hace
@@ -24,6 +25,11 @@ legible por máquinas y por personas.
 | **Usos de IA en detalle** | `train-ai`, `ai-use`, `search` (por defecto: entrenar y usar IA, reservado; búsqueda, permitida) | IETF AIPREF (borrador) |
 | **Visible para personas** | Opcional y desactivado por defecto: página final (PDF) o documento final (EPUB) con el aviso en español e inglés | IPTC, buenas prácticas |
 | **Catálogo** | Manifiesto CSV/JSON por obra (hashes, ISCC, ISBN, reserva, política), con firma opcional | Para registros ISCC y licencias en bloque |
+| **Distribución** | Restricción TDM en el ONIX que la editorial ya envía a librerías (o un ONIX mínimo nuevo) | ONIX 3.0, lista 145 código 11 |
+| **Prueba de fecha** | Sello de tiempo de una autoridad externa sobre el manifiesto (solo viaja la huella) | RFC 3161 |
+| **Registro público** | Sitio estático con una ficha por obra (JSON-LD, TDMRep), alojado por la editorial | schema.org, TDMRep |
+| **Red ISCC** | Declaración directa en un hub ISCC con identidad propia `did:web`, sin intermediarios | ISO 24138, ISCC-SIG |
+| **Vigilancia** | ¿Este archivo es mío? Copias renombradas o sin metadatos, extractos y libros dentro de volcados de texto (conjuntos de entrenamiento) | ISCC + huellas por fragmentos |
 
 Y en todo momento:
 
@@ -38,22 +44,31 @@ Y en todo momento:
 
 ## Qué cubre y qué no (comparación honesta)
 
-| | TDM Seal | Servicios comerciales tipo TDM·AI / registro ISCC |
+Comparado con los servicios comerciales de registro TDM con ISCC (p. ej.
+Signal / S-PLIA de Hipertexto-Netizen, según lo que publican en
+noviembre de 2026):
+
+| | TDM Seal | Servicio comercial de registro |
 |---|---|---|
-| Reserva TDMRep dentro del archivo | Sí (PDF, EPUB) | Según el servicio |
-| Huella ISCC ligada al contenido | Sí, compatible con iscc-sdk | Sí |
-| Declaración en un **registro público** consultable por terceros | No: genera el manifiesto para cargarlo donde se decida | Sí, es su núcleo |
-| Señales del sitio web (`tdmrep.json`, cabeceras, robots.txt) | Sí | Según el servicio |
-| Política de licencia legible por máquinas | Sí (ODRL) | Según el servicio |
-| Sello de tiempo verificable por terceros | No (requiere red; la firma SSH prueba quién, no cuándo) | Normalmente sí |
-| Funciona sin conexión y sin enviar los libros a nadie | Sí | Requiere conexión con el registro |
-| Coste | Gratis, MIT | Licencia comercial |
+| Reserva TDMRep **dentro del archivo** (PDF, EPUB) | Sí, con conservación verificada (píxeles, PDF/A, PDF/UA, firmas, cifrado) | No lo detallan |
+| ISCC | Completo, calculado sobre el contenido; idéntico a iscc-sdk | En la ficha pública, un código sobre los metadatos; el del archivo en niveles superiores |
+| Señales del sitio (`tdmrep.json`, cabeceras, robots.txt, metaetiquetas) | Sí | Sí |
+| Restricción TDM en ONIX | Sí (añadirla a su ONIX o crearlo); valida contra el XSD oficial | Sí |
+| Sello de tiempo RFC 3161 | Sí, opcional (solo viaja la huella) | Sí |
+| Registro público consultable | Sí, alojado por la editorial (sin cuota) | Sí, alojado por el proveedor |
+| Declaración en la red de hubs ISCC | Sí, directa, con identidad propia `did:web`, en el hub que elija | Sí, a través de su hub |
+| Reconocer copias, extractos y libros en volcados de texto | Sí, sin conexión | No lo ofrecen |
+| Política de licencia legible por máquinas | Sí (ODRL) | Declaración de licencia voluntaria |
+| Privacidad | Los libros nunca salen del equipo | Se suben para analizarlos |
+| Coste | Gratis, MIT | De pago (sin tarifas públicas) |
 
 **Lo que ninguna herramienta reemplaza:** el respaldo jurídico de la
 reserva en cada jurisdicción, la gestión colectiva de derechos, la
 negociación y el cobro de licencias, y el seguimiento de quién usa las
 obras. Eso sigue siendo trabajo humano e institucional (editoriales,
-sociedades de gestión como CDR, abogados).
+asociaciones, sociedades de gestión, abogados). Tampoco una red de
+adopción: un proveedor con cientos de editoriales tiene un peso colectivo
+que un programa no da.
 
 ## Instalación
 
@@ -87,14 +102,22 @@ todas las vías sin tocar sus archivos.
 
 ## GUI
 
-Doble clic en `TDM-Seal.exe` o en `TDM-Seal.bat`. Cuatro pestañas:
+Doble clic en `TDM-Seal.exe` o en `TDM-Seal.bat`. Seis pestañas:
 
 1. **Sellar**: datos de la editorial, reserva, archivos PDF/EPUB, ISCC y
    aviso visible (pide confirmación).
 2. **Política**: condiciones de licencia por finalidad, preferencias de IA y
    vista previa de la página de la política.
 3. **Sitio web**: archivos para publicar en el servidor.
-4. **Catálogo**: manifiesto CSV/JSON.
+4. **Catálogo**: manifiesto (JSON o CSV), sello de tiempo, registro público
+   y ONIX.
+5. **Buscar copias**: ¿este archivo o volcado de texto contiene uno de mis
+   libros?
+6. **Red ISCC**: identidad de la editorial y declaración en un hub ISCC
+   (por defecto en la red de pruebas).
+
+Solo el sello de tiempo y la red ISCC usan internet, y antes de hacerlo
+piden confirmación y dicen qué se envía (nunca los libros).
 
 ## Línea de comandos
 
@@ -123,6 +146,26 @@ tdmseal site --check ./publicar/.well-known/tdmrep.json
 # Manifiesto del catálogo (firma opcional con clave SSH)
 tdmseal manifest ./catalogo --recursive --out catalogo_tdm.csv
 tdmseal manifest ./catalogo --out catalogo_tdm.json --sign-key ~/.ssh/id_ed25519
+
+# ONIX 3.0: añadir la reserva al ONIX existente, o crear uno
+tdmseal onix add catalogo_onix.xml          # deja catalogo_onix_TDM.xml
+tdmseal onix build ./catalogo --out onix.xml
+
+# Prueba de fecha (USA LA RED: envía solo la huella SHA-256) y verificación local
+tdmseal timestamp create catalogo_tdm.json --tsa freetsa
+tdmseal timestamp verify catalogo_tdm.json --ca freetsa-cacert.pem
+
+# Registro público (sitio estático para publicar donde quiera)
+tdmseal registry catalogo_tdm.json --out ./registro --base-url https://editorial.ejemplo/registro/
+
+# ¿Este archivo es uno de mis libros? (PDF, EPUB, .txt, .jsonl…)
+tdmseal match descarga_sospechosa.pdf --catalog catalogo_tdm.json
+tdmseal match dataset.jsonl --catalog catalogo_tdm.json
+
+# Red de hubs ISCC (USA LA RED al declarar)
+tdmseal iscc-hub keygen --domain editorial.ejemplo   # publique did.json en /.well-known/
+tdmseal iscc-hub prepare libro_TDM.pdf               # firma sin enviar, para revisar
+tdmseal iscc-hub declare libro_TDM.pdf --hub 1 --network testnet
 
 # Auditar sin modificar
 tdmseal inspect libro_TDM.pdf
@@ -160,7 +203,14 @@ impide sellar.
   archivo oficial de la PDF Association no se pudo descargar); veraPDF
   confirma que PDF/A-1b, 2b y 3b y PDF/UA-1 reales siguen conformes tras
   sellar.
-- La firma del manifiesto prueba quién firmó, no cuándo.
+- La firma del manifiesto prueba quién firmó, no cuándo; para el cuándo,
+  `tdmseal timestamp`.
+- La búsqueda de copias reconoce el mismo texto, no paráfrasis ni
+  traducciones; en volcados enormes conviene partir el archivo (se lee
+  entero en memoria).
+- La declaración en la red ISCC se probó contra las reglas del validador
+  oficial del hub y contra iscc-crypto, no todavía contra un hub en vivo
+  (requiere publicar `did.json` en un dominio de la editorial).
 
 ## Desarrollo
 
@@ -197,7 +247,12 @@ survives sealing (compatible with iscc-sdk), site-level signals
 (`/.well-known/tdmrep.json`, HTTP headers, robots.txt, IETF AIPREF
 `Content-Usage`), an ODRL licensing offer with a human-readable policy page,
 an optional visible notice, and a signed catalogue manifest for ISCC
-registries and collective licensing. It never overwrites originals, skips
+registries and collective licensing. Since 1.4 it also adds the TDM
+restriction to ONIX 3.0 feeds, obtains RFC 3161 timestamps (only the hash
+leaves the computer), builds a self-hosted public registry, declares works
+directly on the federated ISCC hub network with the publisher's own
+`did:web` identity, and recognises copies, excerpts and books inside text
+dumps such as training datasets. It never overwrites originals, skips
 signed, encrypted or DRM-protected files, preserves PDF/A, and validates
 everything it writes. It does not replace legal advice, collective rights
 management or licence negotiation.

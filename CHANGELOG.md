@@ -1,6 +1,12 @@
 # Changelog
 
-## [Sin publicar]
+## [1.4.0] - 2026-11-21
+
+Todo lo que ofrecen los registros comerciales de reservas TDM con ISCC
+(ONIX, sello de tiempo, registro público, red de hubs ISCC), gratis y sin
+intermediarios, más lo que no ofrecen: reconocer copias, extractos y libros
+dentro de conjuntos de datos. Solo el sello de tiempo y la red ISCC usan
+internet, bajo orden expresa y sin enviar nunca los libros.
 
 ### Añadido
 
