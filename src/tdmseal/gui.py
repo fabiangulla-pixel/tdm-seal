@@ -7,7 +7,12 @@ Cuatro pestañas, una por vía de expresión de la reserva:
 - **Política**: condiciones de licencia por finalidad, preferencias AIPREF y
   vista previa de la página que verá quien quiera licenciar.
 - **Sitio web**: `tdmrep.json`, cabeceras HTTP, robots.txt y metaetiquetas.
-- **Catálogo**: manifiesto CSV/JSON con hashes, ISCC e ISBN.
+- **Catálogo**: manifiesto CSV/JSON con hashes, ISCC e ISBN (y huellas por
+  fragmentos); sello de tiempo RFC 3161; registro público; ONIX.
+- **Buscar copias**: ¿este archivo (o volcado de texto) es uno de mis libros?
+- **Red ISCC**: identidad did:web y declaración directa en un hub ISCC.
+
+Lo que usa la red (sello de tiempo, red ISCC) pide confirmación antes.
 
 El trabajo pesado (auditoría, ISCC, sellado, manifiesto) corre en QThread.
 """
@@ -191,7 +196,29 @@ class _ManifestWorker(QObject):
         try:
             docs = iter_documents(self._folder, recursive=True)
             manifest = build_manifest(docs, base_dir=self._folder, **self._kwargs)
-            self.finished.emit(manifest.write(self._out))
+            written = manifest.write(self._out)
+            if self._kwargs.get("with_iscc"):
+                from tdmseal.fingerprint import write_fingerprints
+
+                works = {row["archivo"]: d for row, d in zip(manifest.rows, docs, strict=True)}
+                write_fingerprints(written, works)
+            self.finished.emit(written)
+        except Exception as exc:  # noqa: BLE001 — se muestra al usuario
+            self.finished.emit(exc)
+
+
+class _TaskWorker(QObject):
+    """Ejecuta una función en otro hilo y devuelve su resultado (o la excepción)."""
+
+    finished = Signal(object)
+
+    def __init__(self, fn) -> None:
+        super().__init__()
+        self._fn = fn
+
+    def run(self) -> None:
+        try:
+            self.finished.emit(self._fn())
         except Exception as exc:  # noqa: BLE001 — se muestra al usuario
             self.finished.emit(exc)
 
@@ -232,6 +259,20 @@ class MainWindow(QMainWindow):
 
         self._build_ui()
 
+    def closeEvent(self, event) -> None:  # noqa: N802 — nombre de Qt
+        # Destruir un QThread que sigue corriendo aborta el proceso (qFatal):
+        # pasaba de forma intermitente al cerrar la ventana justo después de una
+        # auditoría (visto en las pruebas, 2 de cada 5 corridas). Se espera a
+        # que terminen los hilos antes de cerrar.
+        for thread in self.findChildren(QThread):
+            try:
+                if thread.isRunning():
+                    thread.quit()
+                    thread.wait(30000)
+            except RuntimeError:  # objeto C++ ya borrado por deleteLater
+                continue
+        super().closeEvent(event)
+
     # ---- construcción de la interfaz -----------------------------------
 
     def _build_ui(self) -> None:
@@ -246,7 +287,8 @@ class MainWindow(QMainWindow):
         layout.addWidget(
             _hint(
                 "Declare la reserva en cada archivo, en el contenido (ISCC), en su sitio web "
-                "y en una política de licencia. Nada se sube a internet."
+                "y en una política de licencia. Nada sale de este equipo salvo que usted lo "
+                "pida (sello de tiempo, red ISCC), y los libros nunca."
             )
         )
 
@@ -255,6 +297,8 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self._build_policy_tab(), "Política")
         self.tabs.addTab(self._build_site_tab(), "Sitio web")
         self.tabs.addTab(self._build_catalog_tab(), "Catálogo")
+        self.tabs.addTab(self._build_match_tab(), "Buscar copias")
+        self.tabs.addTab(self._build_hub_tab(), "Red ISCC")
         self.tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self.tabs, stretch=1)
 
@@ -500,7 +544,143 @@ class MainWindow(QMainWindow):
         self.btn_build_manifest.clicked.connect(self._build_manifest)
         form.addRow("", self.btn_build_manifest)
         layout.addWidget(group)
+
+        proof = QGroupBox("Prueba de fecha y registro público")
+        pform = QFormLayout(proof)
+        pform.addRow(
+            _hint(
+                "El sello de tiempo RFC 3161 prueba ante terceros la fecha de la reserva: "
+                "se pide sobre el manifiesto (.json) y cubre todas sus obras. Usa internet y "
+                "envía solo la huella SHA-256, nunca los libros. El registro público es un "
+                "sitio web con una ficha por obra, que usted publica donde quiera."
+            )
+        )
+        self.combo_tsa = QComboBox()
+        for code, label in (
+            ("freetsa", "FreeTSA"),
+            ("digicert", "DigiCert"),
+            ("sectigo", "Sectigo"),
+        ):
+            self.combo_tsa.addItem(label, code)
+        pform.addRow("Autoridad de sellado:", self.combo_tsa)
+        self.btn_timestamp = QPushButton("Sellar en el tiempo un manifiesto…")
+        self.btn_timestamp.clicked.connect(self._timestamp_manifest)
+        pform.addRow("", self.btn_timestamp)
+        self.registry_url_edit = QLineEdit()
+        self.registry_url_edit.setPlaceholderText(
+            "https://editorial.ejemplo.edu/registro/ (opcional)"
+        )
+        pform.addRow("URL del registro:", self.registry_url_edit)
+        self.btn_registry = QPushButton("Generar registro público…")
+        self.btn_registry.setObjectName("primary")
+        self.btn_registry.clicked.connect(self._build_registry)
+        pform.addRow("", self.btn_registry)
+        layout.addWidget(proof)
+
+        onix = QGroupBox("ONIX 3.0 para distribuidores y librerías")
+        oform = QFormLayout(onix)
+        oform.addRow(
+            _hint(
+                "Añade la restricción de minería de textos y datos (EpubUsageType 11) a cada "
+                "producto digital de su ONIX, sin tocar nada más, o crea un ONIX mínimo desde "
+                "una carpeta de PDF y EPUB."
+            )
+        )
+        row = QHBoxLayout()
+        self.btn_onix_add = QPushButton("Añadir la reserva a mi ONIX…")
+        self.btn_onix_add.clicked.connect(self._onix_add)
+        self.btn_onix_build = QPushButton("Crear ONIX desde una carpeta…")
+        self.btn_onix_build.clicked.connect(self._onix_build)
+        row.addWidget(self.btn_onix_add)
+        row.addWidget(self.btn_onix_build)
+        row.addStretch(1)
+        oform.addRow(row)
+        layout.addWidget(onix)
         layout.addStretch(1)
+        return tab
+
+    def _build_match_tab(self) -> QWidget:
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        group = QGroupBox("¿Este archivo es uno de mis libros?")
+        form = QFormLayout(group)
+        form.addRow(
+            _hint(
+                "Compara un archivo encontrado (en internet, en un conjunto de datos de "
+                "entrenamiento…) con su catálogo. Reconoce copias renombradas o sin metadatos, "
+                "extractos y libros dentro de volcados de texto (.txt, .jsonl). Use el "
+                "manifiesto .json que generó en la pestaña Catálogo. Sin conexión."
+            )
+        )
+        cat_row = QHBoxLayout()
+        self.match_catalog_edit = QLineEdit()
+        self.match_catalog_edit.setPlaceholderText("Manifiesto .json del catálogo")
+        btn_cat = QPushButton("Elegir…")
+        btn_cat.clicked.connect(self._choose_match_catalog)
+        cat_row.addWidget(self.match_catalog_edit, stretch=1)
+        cat_row.addWidget(btn_cat)
+        form.addRow("Catálogo:", cat_row)
+        self.btn_match = QPushButton("Elegir archivo y comparar…")
+        self.btn_match.setObjectName("primary")
+        self.btn_match.clicked.connect(self._run_match)
+        form.addRow("", self.btn_match)
+        layout.addWidget(group)
+        self.match_output = QPlainTextEdit()
+        self.match_output.setReadOnly(True)
+        self.match_output.setPlaceholderText("Aquí aparecerá el resultado de la comparación.")
+        layout.addWidget(self.match_output, stretch=1)
+        return tab
+
+    def _build_hub_tab(self) -> QWidget:
+        from tdmseal.iscc.hub import HUB_NAMES
+
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        ident = QGroupBox("1. Identidad de la editorial (una sola vez)")
+        iform = QFormLayout(ident)
+        iform.addRow(
+            _hint(
+                "Para declarar en la red ISCC sin intermediarios, la editorial firma con su "
+                "propia clave. Se crea aquí y se guarda en este equipo; usted publica el "
+                "archivo did.json en su dominio, en /.well-known/did.json."
+            )
+        )
+        self.hub_domain_edit = QLineEdit()
+        self.hub_domain_edit.setPlaceholderText("editorial.ejemplo.edu")
+        iform.addRow("Dominio:", self.hub_domain_edit)
+        self.btn_hub_keygen = QPushButton("Crear clave y did.json…")
+        self.btn_hub_keygen.clicked.connect(self._hub_keygen)
+        iform.addRow("", self.btn_hub_keygen)
+        self.hub_identity_label = _hint("")
+        iform.addRow(self.hub_identity_label)
+        layout.addWidget(ident)
+
+        decl = QGroupBox("2. Declarar obras")
+        dform = QFormLayout(decl)
+        dform.addRow(
+            _hint(
+                "Cada declaración queda registrada en un hub público con fecha y un recibo "
+                "firmado por el hub. Usa internet: se envían el ISCC, las huellas y la firma, "
+                "nunca el archivo. Pruebe primero en la red de pruebas."
+            )
+        )
+        self.combo_hub = QComboBox()
+        for hub_id, name in HUB_NAMES.items():
+            self.combo_hub.addItem(name, hub_id)
+        dform.addRow("Hub:", self.combo_hub)
+        self.combo_network = QComboBox()
+        self.combo_network.addItem("Red de pruebas (testnet)", "testnet")
+        self.combo_network.addItem("Red real (mainnet)", "mainnet")
+        dform.addRow("Red:", self.combo_network)
+        self.btn_hub_declare = QPushButton("Elegir archivos y declarar…")
+        self.btn_hub_declare.setObjectName("primary")
+        self.btn_hub_declare.clicked.connect(self._hub_declare)
+        dform.addRow("", self.btn_hub_declare)
+        layout.addWidget(decl)
+        self.hub_output = QPlainTextEdit()
+        self.hub_output.setReadOnly(True)
+        layout.addWidget(self.hub_output, stretch=1)
+        self._refresh_hub_identity()
         return tab
 
     # ---- valores por defecto y datos actuales ---------------------------
@@ -648,8 +828,9 @@ class MainWindow(QMainWindow):
         out, _ = QFileDialog.getSaveFileName(
             self,
             "Guardar manifiesto",
-            str(Path(folder) / "catalogo_tdm.csv"),
-            "CSV (*.csv);;JSON (*.json)",
+            # JSON por defecto: lo necesitan el registro público y la búsqueda de copias.
+            str(Path(folder) / "catalogo_tdm.json"),
+            "JSON (*.json);;CSV para Excel (*.csv)",
             options=QFileDialog.Option.DontUseNativeDialog,
         )
         if not out:
@@ -679,6 +860,293 @@ class MainWindow(QMainWindow):
             self.status_label.setText(f"No se pudo generar el manifiesto: {result}")
         else:
             self.status_label.setText(f"Manifiesto generado: {result}")
+
+    def _start_task(self, fn, on_done, button: QPushButton, message: str) -> None:
+        """Corre `fn` en otro hilo; `on_done(resultado o excepción)` en la interfaz."""
+        button.setEnabled(False)
+        self.status_label.setText(message)
+        worker = _TaskWorker(fn)
+        thread = QThread(self)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+
+        def done(result: object) -> None:
+            button.setEnabled(True)
+            on_done(result)
+
+        worker.finished.connect(done)
+        worker.finished.connect(thread.quit)
+        thread.finished.connect(thread.deleteLater)
+        self._thread, self._worker = thread, worker
+        thread.start()
+
+    def _open_file(self, title: str, filters: str) -> Path | None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, title, "", filters, options=QFileDialog.Option.DontUseNativeDialog
+        )
+        return Path(path) if path else None
+
+    def _save_file(self, title: str, suggested: Path, filters: str) -> Path | None:
+        path, _ = QFileDialog.getSaveFileName(
+            self, title, str(suggested), filters, options=QFileDialog.Option.DontUseNativeDialog
+        )
+        return Path(path) if path else None
+
+    def _pick_folder(self, title: str) -> Path | None:
+        folder = QFileDialog.getExistingDirectory(
+            self, title, options=QFileDialog.Option.DontUseNativeDialog
+        )
+        return Path(folder) if folder else None
+
+    # ---- prueba de fecha, registro y ONIX ------------------------------------
+
+    def _timestamp_manifest(self) -> None:
+        from tdmseal.timestamp import create_timestamp, resolve_tsa
+
+        path = self._open_file("Manifiesto a sellar", "Manifiesto (*.json *.csv);;Todos (*)")
+        if path is None:
+            return
+        url = resolve_tsa(self.combo_tsa.currentData())
+        answer = QMessageBox.question(
+            self,
+            "Usar internet",
+            f"Se enviará a {url} solo la huella SHA-256 de {path.name} (no su contenido) para "
+            "obtener un sello de tiempo. ¿Continuar?",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        def done(result: object) -> None:
+            if isinstance(result, Exception):
+                self.status_label.setText(f"No se pudo obtener el sello de tiempo: {result}")
+            else:
+                self.status_label.setText(
+                    f"Sellado el {result.fecha_sellada_utc} (UTC) por {result.tsa}: "
+                    f"{path.name}.tsr y {path.name}.tsr.json."
+                )
+
+        self._start_task(
+            lambda: create_timestamp(path, url), done, self.btn_timestamp, "Pidiendo el sello…"
+        )
+
+    def _build_registry(self) -> None:
+        from tdmseal.registry import build_registry
+
+        manifest = self._open_file("Manifiesto .json del catálogo", "JSON (*.json)")
+        if manifest is None:
+            return
+        folder = self._pick_folder("Carpeta donde generar el registro")
+        if folder is None:
+            return
+        try:
+            result = build_registry(manifest, folder, self.registry_url_edit.text().strip() or None)
+        except (ValueError, OSError) as exc:
+            QMessageBox.warning(self, "No se pudo generar el registro", str(exc))
+            return
+        proof = "con sello de tiempo" if result.timestamped else "sin sello de tiempo"
+        self.status_label.setText(
+            f"Registro generado ({result.works} obras, {proof}) en {folder}. Abra index.html "
+            "para revisarlo y publique la carpeta en su sitio."
+        )
+
+    def _onix_add(self) -> None:
+        from tdmseal.onix import add_tdm_to_onix
+
+        src = self._open_file("ONIX 3.0 de la editorial", "ONIX (*.xml *.onix);;Todos (*)")
+        if src is None:
+            return
+        out = self._save_file(
+            "Guardar ONIX con la reserva",
+            src.with_name(f"{src.stem}_TDM{src.suffix}"),
+            "XML (*.xml)",
+        )
+        if out is None:
+            return
+        if out.resolve() == src.resolve():
+            QMessageBox.warning(self, "ONIX", "Elija un archivo distinto del original.")
+            return
+        reservation = 1 if self.radio_reserved.isChecked() else 0
+        try:
+            data, change = add_tdm_to_onix(src.read_bytes(), reservation)
+        except (ValueError, OSError) as exc:
+            QMessageBox.warning(self, "No se pudo procesar el ONIX", str(exc))
+            return
+        out.write_bytes(data)
+        self.status_label.setText(f"ONIX: {change.summary()} -> {out}")
+
+    def _onix_build(self) -> None:
+        from tdmseal.onix import build_onix
+
+        folder = self._pick_folder("Carpeta con PDF y EPUB")
+        if folder is None:
+            return
+        out = self._save_file("Guardar ONIX", folder / "catalogo_onix.xml", "XML (*.xml)")
+        if out is None:
+            return
+        reservation = 1 if self.radio_reserved.isChecked() else 0
+        sender = self.publisher_name_edit.text().strip() or None
+
+        def work():
+            docs = iter_documents(folder, recursive=True)
+            rows = build_manifest(docs, base_dir=folder).rows
+            out.write_bytes(build_onix(rows, reservation, sender))
+            return len(rows)
+
+        def done(result: object) -> None:
+            if isinstance(result, Exception):
+                self.status_label.setText(f"No se pudo crear el ONIX: {result}")
+            else:
+                self.status_label.setText(f"ONIX con {result} obra(s): {out}")
+
+        self._start_task(work, done, self.btn_onix_build, "Creando el ONIX…")
+
+    # ---- buscar copias ---------------------------------------------------------
+
+    def _choose_match_catalog(self) -> None:
+        path = self._open_file("Manifiesto .json o registro.json", "JSON (*.json)")
+        if path is not None:
+            self.match_catalog_edit.setText(str(path))
+
+    def _run_match(self) -> None:
+        from tdmseal.match import match_file
+
+        catalog = Path(self.match_catalog_edit.text().strip())
+        if not catalog.is_file():
+            QMessageBox.warning(self, "Falta el catálogo", "Elija primero el manifiesto .json.")
+            return
+        target = self._open_file(
+            "Archivo a comparar",
+            "Documentos y texto (*.pdf *.epub *.txt *.jsonl *.json *.md *.html *.htm *.xml)",
+        )
+        if target is None:
+            return
+
+        def done(result: object) -> None:
+            if isinstance(result, Exception):
+                self.match_output.setPlainText(f"No se pudo comparar: {result}")
+                return
+            if not result:
+                self.match_output.setPlainText(
+                    f"{target.name}: no corresponde a ninguna obra del catálogo."
+                )
+                return
+            lines = [f"{target.name}:"]
+            for m in result:
+                reserva = {1: "reservado", 0: "autorizado"}.get(m.reservation, "sin declaración")
+                lines.append(f"• {m.describe()} — TDM {reserva}")
+                if m.policy:
+                    lines.append(f"  Política: {m.policy}")
+            self.match_output.setPlainText("\n".join(lines))
+
+        self._start_task(lambda: match_file(target, catalog), done, self.btn_match, "Comparando…")
+
+    # ---- red ISCC ----------------------------------------------------------------
+
+    def _refresh_hub_identity(self) -> None:
+        from tdmseal.iscc.hub import HubError, did_url, key_path, load_key
+
+        try:
+            key = load_key()
+        except (HubError, OSError, ValueError, KeyError):
+            self.hub_identity_label.setText(f"Aún no hay clave (se guardará en {key_path()}).")
+            return
+        self.hub_identity_label.setText(
+            f"Identidad: {key.controller}. El did.json debe estar publicado en "
+            f"{did_url(key.controller)}."
+        )
+
+    def _hub_keygen(self) -> None:
+        import json as _json
+
+        from tdmseal.iscc.hub import HubError, did_url, generate_key, key_path, save_key
+
+        domain = self.hub_domain_edit.text().strip()
+        try:
+            key = generate_key(domain)
+        except ValueError as exc:
+            QMessageBox.warning(self, "Dominio no válido", str(exc))
+            return
+        if key_path().exists():
+            QMessageBox.warning(
+                self,
+                "Ya hay una clave",
+                f"Ya existe una clave en {key_path()}. No se reemplaza desde aquí: las "
+                "declaraciones hechas con ella dejarían de poder borrarse.",
+            )
+            return
+        folder = self._pick_folder("Carpeta donde dejar did.json")
+        if folder is None:
+            return
+        try:
+            save_key(key)
+        except HubError as exc:
+            QMessageBox.warning(self, "No se pudo guardar la clave", str(exc))
+            return
+        (folder / "did.json").write_text(
+            _json.dumps(key.did_document(), indent=2) + "\n", encoding="utf-8"
+        )
+        self._refresh_hub_identity()
+        self.hub_output.setPlainText(
+            f"Clave creada y guardada en {key_path()} (no la comparta).\n"
+            f"Publique {folder / 'did.json'} en {did_url(key.controller)}\n"
+            "Después podrá declarar obras."
+        )
+
+    def _hub_declare(self) -> None:
+        from tdmseal.iscc.hub import (
+            HUB_NAMES,
+            HubError,
+            check_did_published,
+            declare_file,
+            hub_url,
+            load_key,
+        )
+
+        try:
+            key = load_key()
+        except (HubError, OSError, ValueError, KeyError) as exc:
+            QMessageBox.warning(self, "Falta la identidad", str(exc))
+            return
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Obras a declarar",
+            "",
+            "PDF y EPUB (*.pdf *.epub)",
+            options=QFileDialog.Option.DontUseNativeDialog,
+        )
+        if not paths:
+            return
+        hub_id = self.combo_hub.currentData()
+        network = self.combo_network.currentData()
+        _, url = hub_url(hub_id, network)
+        answer = QMessageBox.question(
+            self,
+            "Usar internet",
+            f"Se declararán {len(paths)} obra(s) en {HUB_NAMES[hub_id]} ({url}). Se envían el "
+            "ISCC, las huellas y la firma de la editorial; nunca los archivos. ¿Continuar?",
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        def work():
+            check_did_published(key)
+            lines = []
+            for p in paths:
+                try:
+                    record, out = declare_file(Path(p), key, hub_id, network)
+                    lines.append(f"✔ {Path(p).name}: {record['iscc_id']} ({out.name})")
+                except (HubError, ValueError, OSError) as exc:
+                    lines.append(f"✖ {Path(p).name}: {exc}")
+            return lines
+
+        def done(result: object) -> None:
+            if isinstance(result, Exception):
+                self.hub_output.setPlainText(f"No se pudo declarar: {result}")
+            else:
+                self.hub_output.setPlainText("\n".join(result))
+            self.status_label.setText("Declaración terminada.")
+
+        self._start_task(work, done, self.btn_hub_declare, "Declarando en la red ISCC…")
 
     # ---- selección de archivos ------------------------------------------
 

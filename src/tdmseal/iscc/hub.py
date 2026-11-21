@@ -321,6 +321,37 @@ def _request(url: str, method: str = "GET", body: dict | None = None, timeout: f
         raise HubError(f"no se pudo contactar con el hub: {exc.reason}") from exc
 
 
+def check_did_published(key: HubKey, timeout: float = 30) -> None:
+    """Comprueba que el did.json publicado contiene la clave. HubError si no."""
+    url = did_url(key.controller)
+    try:
+        _, doc = _request(url, timeout=timeout)
+    except HubError as exc:
+        raise HubError(
+            f"no se pudo leer {url} ({exc}). Publique primero el did.json de la editorial."
+        ) from exc
+    if key.public_key not in json.dumps(doc):
+        raise HubError(f"{url} no contiene la clave pública de esta editorial")
+
+
+def declare_file(
+    path: Path,
+    key: HubKey,
+    hub: str | int = 1,
+    network: str = "mainnet",
+    gateway: str | None = None,
+) -> tuple[dict, Path]:
+    """Construye, firma y envía la declaración de un archivo; guarda
+    ARCHIVO.iscc-declaracion.json. Devuelve (registro, ruta)."""
+    hub_id, url = hub_url(hub, network)
+    note = build_note(path, key, hub_id, gateway)
+    result = declare(note, url)
+    record = {"hub": url, "network": network, "note": note, **result}
+    out = Path(str(path) + ".iscc-declaracion.json")
+    out.write_text(json.dumps(record, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return record, out
+
+
 def declare(note: dict, base_url: str, *, timeout: float = 30) -> dict:
     """Envía la nota. Devuelve {'iscc_id', 'seq', 'receipt'}."""
     base = base_url.rstrip("/")
