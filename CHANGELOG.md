@@ -1,5 +1,22 @@
 # Changelog
 
+## [Sin publicar]
+
+### Añadido
+
+- **Pruebas con libros reales** (`tests/integration/test_libros_reales.py`):
+  cada PDF/EPUB de `%LOCALAPPDATA%\TDMSeal\libros_prueba` (fuera del
+  repositorio: tienen derechos reservados) se sella en una copia y se
+  comprueba píxel a píxel, contra iscc-sdk, firmado con pyHanko y cifrado.
+  Primer libro: *Los días biches* (164 pp.): páginas idénticas al píxel,
+  ISCC igual a iscc-sdk, `/Info` heredado conservado, firma de certificación
+  válida tras sellar y cifrado conservado.
+
+### Corregido
+
+- El helper de firmas abre los PDF en modo tolerante: pyHanko estricto
+  rechazaba el libro real por una generación huérfana que dejó MuPDF.
+
 ## [1.3.0] - 2026-11-21
 
 ### Añadido

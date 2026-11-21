@@ -98,6 +98,13 @@ Cifrado: `save_pdf` usa `encryption=True` (sin eso pikepdf entrega la
 copia DESCIFRADA); `compare_encryption` lo verifica. Integridad compara
 contenido de adjuntos y valores de formulario.
 
+Libros reales: `%LOCALAPPDATA%\TDMSeal\libros_prueba` (o
+`TDMSEAL_LIBROS_PRUEBA`), FUERA del repo porque tienen derechos reservados;
+nunca copiarlos al repositorio (es público). `test_libros_reales.py` los
+recorre todos. Hoy: *Los días biches* (Güilla Edita, 164 pp., sin XMP, con
+`/Info` heredado de MuPDF y una generación huérfana que pyHanko estricto
+rechaza).
+
 Aviso visible: texto revisado y aprobado por el usuario el 21-nov-2026
 (`docs/aviso-visible.md` explica cada cambio). La composición se
 ajusta al tamaño de página (`layout_pdf_notice`).

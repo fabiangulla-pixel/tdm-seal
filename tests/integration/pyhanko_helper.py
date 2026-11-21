@@ -60,7 +60,9 @@ def sign(mode: str, src: Path, out: Path, keys: Path) -> None:
 
     key_path, cert_path = _make_keys(keys)
     with src.open("rb") as inf:
-        writer = IncrementalPdfFileWriter(inf)
+        # strict=False: PDF reales (p. ej. guardados por MuPDF) pueden traer
+        # generaciones huérfanas que el modo estricto rechaza; Acrobat las acepta.
+        writer = IncrementalPdfFileWriter(inf, strict=False)
         if mode == "field":
             fields.append_signature_field(
                 writer, fields.SigFieldSpec("FirmaVacia", box=(20, 20, 220, 70))
@@ -84,7 +86,9 @@ def detail(path: Path, keys: Path) -> str:
     _, cert_path = _make_keys(keys)
     context = ValidationContext(trust_roots=[load_cert_from_pemder(str(cert_path))])
     with path.open("rb") as f:
-        status = validate_pdf_signature(PdfFileReader(f).embedded_signatures[0], context)
+        status = validate_pdf_signature(
+            PdfFileReader(f, strict=False).embedded_signatures[0], context
+        )
         level = status.modification_level.name if status.modification_level else None
         return (
             f"intacta={status.intact} valida={status.valid} nivel={level} "
@@ -101,7 +105,7 @@ def verify(path: Path, keys: Path) -> str:
     _, cert_path = _make_keys(keys)
     context = ValidationContext(trust_roots=[load_cert_from_pemder(str(cert_path))])
     with path.open("rb") as f:
-        reader = PdfFileReader(f)
+        reader = PdfFileReader(f, strict=False)
         if not reader.embedded_signatures:
             return "unsigned"
         status = validate_pdf_signature(reader.embedded_signatures[0], context)
