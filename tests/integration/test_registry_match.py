@@ -154,6 +154,74 @@ def test_unrelated_book_not_matched(catalog):
     assert result.exit_code == 1 and "SIN COINCIDENCIAS" in result.output
 
 
+@pytest.fixture
+def big_catalog(tmp_path):
+    """Dos libros largos con huellas por fragmentos, como deja `tdmseal manifest`."""
+    from tdmseal.fingerprint import write_fingerprints
+
+    books = tmp_path / "largos"
+    books.mkdir()
+    texts = {}
+    for seed in ("delta", "omega"):
+        # 6 palabras por renglón: más anchas se saldrían de la página y no se extraerían.
+        pages = [
+            "\n".join(" ".join(f"{seed}{p}x{line}y{w}" for w in range(6)) for line in range(40))
+            for p in range(10)
+        ]
+        texts[seed] = pages
+        build_text_pdf(books / f"{seed}.pdf", pages, title=f"Libro {seed}")
+    docs = sorted(books.glob("*.pdf"))
+    manifest = build_manifest(docs, books, publisher=PUBLISHER)
+    path = tmp_path / "catalogo.json"
+    manifest.write(path)
+    write_fingerprints(
+        path, {row["archivo"]: d for row, d in zip(manifest.rows, docs, strict=True)}
+    )
+    return {"manifest": path, "texts": texts, "tmp": tmp_path}
+
+
+def test_extract_recognized(big_catalog):
+    extract = build_text_pdf(
+        big_catalog["tmp"] / "capitulo.pdf", big_catalog["texts"]["delta"][3:6]
+    )
+    matches = match_file(extract, big_catalog["manifest"])
+    assert [m.level for m in matches] == ["extracto de la obra"]
+    assert matches[0].title == "Libro delta"
+    assert matches[0].suspect_share > 0.9 and 0.2 < matches[0].work_share < 0.4
+
+
+def test_book_inside_text_dump(big_catalog):
+    dump = big_catalog["tmp"] / "dataset.jsonl"
+    rows = [json.dumps({"text": f"texto ajeno número {i} " * 40}) for i in range(200)]
+    rows.append(json.dumps({"text": " ".join(big_catalog["texts"]["omega"])}))
+    dump.write_text("\n".join(rows), encoding="utf-8")
+
+    matches = match_file(dump, big_catalog["manifest"])
+
+    assert matches and matches[0].title == "Libro omega"
+    assert matches[0].level == "contiene la obra" and matches[0].work_share > 0.95
+    assert all(m.title != "Libro delta" for m in matches)
+
+
+def test_unrelated_text_dump_not_matched(big_catalog):
+    dump = big_catalog["tmp"] / "otro.txt"
+    dump.write_text("Un texto cualquiera sobre otra cosa. " * 500, encoding="utf-8")
+    assert match_file(dump, big_catalog["manifest"]) == []
+
+
+def test_no_fingerprints_no_fragment_matching(big_catalog):
+    big_catalog["manifest"].with_name("catalogo.json.huellas.json").unlink()
+    extract = build_text_pdf(
+        big_catalog["tmp"] / "capitulo.pdf", big_catalog["texts"]["delta"][3:6]
+    )
+    assert match_file(extract, big_catalog["manifest"]) == []
+
+
+def test_fingerprints_hold_no_text(big_catalog):
+    raw = big_catalog["manifest"].with_name("catalogo.json.huellas.json").read_text("utf-8")
+    assert "delta0x" not in raw and "omega" not in raw.replace("omega.pdf", "")
+
+
 def test_cli_registry(catalog):
     out = catalog["tmp"] / "web"
     result = CliRunner().invoke(main, ["registry", str(catalog["manifest"]), "--out", str(out)])

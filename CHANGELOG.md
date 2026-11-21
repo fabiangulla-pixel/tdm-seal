@@ -34,8 +34,17 @@
   renombrada, re-guardada o sin metadatos, por distancia de Hamming del
   ISCC de contenido. Con *Los días biches*: la copia sin XMP ni `/Info`,
   linealizada, y la copia sin la última página dan "mismo texto" (0/64 bits).
-  Limitación conocida: un extracto (20 de 164 páginas) todavía no se
-  reconoce.
+- **Extractos y libros dentro de volcados de texto** (`fingerprint.py`):
+  `tdmseal manifest` deja junto al manifiesto `*.huellas.json`, una muestra
+  de hashes de 64 bits de secuencias de 5 palabras (el texto no se puede
+  reconstruir; no se publica en el registro). `tdmseal match` dice entonces
+  qué parte del archivo viene de la obra y qué parte de la obra contiene, y
+  acepta también .txt, .jsonl, .json, .html (formatos de los conjuntos de
+  datos de entrenamiento; en JSON se decodifican las cadenas, porque los
+  saltos de línea escapados pegaban palabras). Con *Los días biches*: un
+  extracto de 20 páginas da "extracto de la obra" (100 % del archivo), 600
+  palabras escondidas en un JSONL ajeno se detectan, y un texto no
+  relacionado da 0 %.
 - **Sello de tiempo RFC 3161** (`tdmseal timestamp create|verify`,
   `timestamp.py`): prueba ante terceros de la fecha de la reserva (lo ideal:
   sellar el manifiesto del catálogo, una sola petición para todas las obras).

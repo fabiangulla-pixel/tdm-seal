@@ -311,6 +311,12 @@ def manifest(
     written = result.write(out_path)
     errors = sum(1 for row in result.rows if str(row.get("estado", "")).startswith("error"))
     click.echo(f"[OK] {len(result.rows)} obra(s) -> {written}")
+    if not no_iscc:
+        from tdmseal.fingerprint import write_fingerprints
+
+        works = {row["archivo"]: doc for row, doc in zip(result.rows, docs, strict=True)}
+        prints = write_fingerprints(written, works)
+        click.echo(f"[OK] huellas por fragmentos (para `tdmseal match`) -> {prints}")
     if errors:
         click.echo(f"[AVISO] {errors} obra(s) con error; ver la columna 'estado'.")
     if sign_key is not None:
@@ -506,7 +512,9 @@ def registry_command(manifest_file: Path, out_dir: Path, base_url: str | None) -
 )
 def match_command(file: Path, catalog: Path) -> None:
     """¿Este archivo es uno de mis libros? Lo reconoce aunque esté renombrado,
-    re-guardado o sin metadatos (ISCC de contenido). Sin conexión."""
+    re-guardado o sin metadatos (ISCC de contenido) y, con las huellas que
+    `tdmseal manifest` deja junto al manifiesto, también extractos y libros
+    dentro de volcados de texto (.txt, .jsonl…). Sin conexión."""
     from tdmseal.match import match_file
 
     try:
