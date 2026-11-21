@@ -41,19 +41,20 @@ class IsccResult:
     filesize: int
 
 
-def compute_iscc(path: Path) -> IsccResult:
+def compute_iscc(path: Path, bits: int = 64) -> IsccResult:
     """Calcula el ISCC de un archivo a partir de su contenido binario.
 
     No lee ni depende del nombre del archivo, su ruta ni ninguna ubicación
     externa: dos copias idénticas en bytes, en cualquier carpeta o con
-    cualquier nombre, producen el mismo ISCC.
+    cualquier nombre, producen el mismo ISCC. `bits=256` da las unidades
+    completas que exige la red de hubs ISCC (el ISCC-CODE no cambia).
     """
     path = Path(path)
 
     with open(path, "rb") as stream:
-        data_code = ic.gen_data_code(stream)
+        data_code = ic.gen_data_code(stream, bits=bits)
     with open(path, "rb") as stream:
-        instance_code = ic.gen_instance_code(stream)
+        instance_code = ic.gen_instance_code(stream, bits=bits)
 
     combined = ic.gen_iscc_code([data_code["iscc"], instance_code["iscc"]])
 

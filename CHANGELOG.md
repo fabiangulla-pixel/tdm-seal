@@ -4,6 +4,20 @@
 
 ### Añadido
 
+- **Declaración directa en la red de hubs ISCC** (`tdmseal iscc-hub
+  keygen|prepare|declare`, `iscc/hub.py`): la editorial declara sus obras en
+  cualquier hub de la red federada ISCC (ISCC Foundation `iscc.id`, Amlet,
+  S-PLIA) con su propia identidad `did:web`, sin intermediarios ni cuotas.
+  `keygen` crea la clave Ed25519 (en `%APPDATA%\TDMSeal`, nunca en el
+  proyecto) y el `did.json` que se publica en el dominio; `prepare` firma las
+  notas sin enviarlas; `declare` comprueba que el `did.json` esté publicado,
+  envía la nota (ISCC-CODE, huella BLAKE3, unidades de 256 bits, nonce,
+  firma; nunca el archivo) y guarda ISCC-ID y recibo. Firma ISCC-SIG v1.0
+  (JCS + Ed25519 en Python puro, `iscc/ed25519.py`, sin dependencias
+  nuevas). Probado con los vectores de la RFC 8032, contra las reglas del
+  validador oficial del hub (iscc-hub 0.1.2) y contra iscc-crypto 0.5.0
+  (mismas claves, mismo `did.json`, firmas válidas en ambos sentidos).
+  `compute_content_iscc(..., bits=256)`: unidades completas, mismo ISCC-CODE.
 - **Registro público propio** (`tdmseal registry`, `registry.py`): sitio
   estático generado desde el manifiesto, que la editorial aloja donde quiera
   (sin intermediarios ni cuotas). Una ficha por obra con la declaración en
