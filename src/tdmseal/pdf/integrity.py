@@ -26,17 +26,44 @@ def _count_annotations(pdf: pikepdf.Pdf) -> int:
     return sum(len(page.get("/Annots", [])) for page in pdf.pages)
 
 
-def _count_attachments(pdf: pikepdf.Pdf) -> int:
-    names = pdf.Root.get("/Names")
-    if not names:
-        return 0
-    embedded = names.get("/EmbeddedFiles")
-    if not embedded:
-        return 0
-    entries = embedded.get("/Names")
-    if not entries:
-        return 0
-    return len(entries) // 2
+def _attachments(pdf: pikepdf.Pdf) -> dict[str, bytes]:
+    """Adjuntos (nombre -> contenido). Recorre el árbol de nombres completo (con /Kids)."""
+    result = {}
+    for name, spec in pdf.attachments.items():
+        try:
+            result[name] = spec.get_file().read_bytes()
+        except (pikepdf.PdfError, AttributeError, ValueError):
+            result[name] = b""
+    return result
+
+
+def _form_fields(pdf: pikepdf.Pdf) -> dict[str, str]:
+    """Campos de formulario (nombre completo -> valor serializado)."""
+    acroform = pdf.Root.get("/AcroForm")
+    if not isinstance(acroform, pikepdf.Dictionary):
+        return {}
+    result: dict[str, str] = {}
+    seen: set[tuple[int, int]] = set()
+
+    def walk(field, prefix: str) -> None:
+        if not isinstance(field, pikepdf.Dictionary):
+            return
+        if field.is_indirect:
+            if field.objgen in seen:
+                return
+            seen.add(field.objgen)
+        name = str(field.get("/T", ""))
+        full = f"{prefix}.{name}" if prefix and name else (name or prefix)
+        if "/V" in field:
+            value = field["/V"]
+            # Firmas: basta con saber que siguen; su contenido no se compara.
+            result[full] = "<firma>" if isinstance(value, pikepdf.Dictionary) else str(value)
+        for kid in field.get("/Kids", []) or []:
+            walk(kid, full)
+
+    for field in acroform.get("/Fields", []) or []:
+        walk(field, "")
+    return result
 
 
 def compare_non_metadata_invariants(
@@ -61,9 +88,36 @@ def compare_non_metadata_invariants(
         if _count_annotations(before) != _count_annotations(after):
             issues.append("número de anotaciones cambió")
 
-        if _count_attachments(before) != _count_attachments(after):
-            issues.append("número de adjuntos (embedded files) cambió")
+        att_before, att_after = _attachments(before), _attachments(after)
+        if set(att_before) != set(att_after):
+            issues.append("los adjuntos (embedded files) cambiaron")
+        elif any(att_before[k] != att_after[k] for k in att_before):
+            issues.append("el contenido de algún adjunto cambió")
 
+        if _form_fields(before) != _form_fields(after):
+            issues.append("los campos de formulario o sus valores cambiaron")
+
+    return {"status": "PASS" if not issues else "FAIL", "issues": issues}
+
+
+def compare_encryption(input_path: Path, output_path: Path) -> dict:
+    """Un PDF cifrado debe seguir cifrado, con el mismo método y los mismos permisos."""
+    with pikepdf.open(input_path) as before, pikepdf.open(output_path) as after:
+        if not before.is_encrypted:
+            return {"status": "PASS", "issues": []}
+        if not after.is_encrypted:
+            return {
+                "status": "FAIL",
+                "issues": ["el PDF original estaba cifrado y la copia sellada no lo está"],
+            }
+        issues = []
+        if before.allow != after.allow:
+            issues.append("los permisos del PDF cifrado cambiaron (imprimir, copiar…)")
+        if before.encryption.bits != after.encryption.bits:
+            issues.append(
+                f"la fuerza del cifrado cambió ({before.encryption.bits} -> "
+                f"{after.encryption.bits} bits)"
+            )
     return {"status": "PASS" if not issues else "FAIL", "issues": issues}
 
 

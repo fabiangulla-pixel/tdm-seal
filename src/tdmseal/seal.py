@@ -26,7 +26,11 @@ from tdmseal.notice import (
 from tdmseal.pdf.docinfo import restore_inherited_info
 from tdmseal.pdf.incremental import IncrementalUpdateError, append_xmp_update
 from tdmseal.pdf.inspector import inspect_pdf, read_document_xmp_bytes
-from tdmseal.pdf.integrity import compare_docinfo, compare_non_metadata_invariants
+from tdmseal.pdf.integrity import (
+    compare_docinfo,
+    compare_encryption,
+    compare_non_metadata_invariants,
+)
 from tdmseal.pdf.writer import create_output_path, save_pdf, write_document_xmp_bytes
 from tdmseal.validation.qpdf_validator import qpdf_check
 from tdmseal.validation.tdmrep_validator import verify_tdmrep_by_rereading
@@ -208,6 +212,11 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
             errors=[f"No se pudo escribir el PDF sellado: {exc}"],
         )
 
+    if before.encrypted:
+        enc_result = compare_encryption(input_path, output_path)
+        validations["encryption_preserved"] = enc_result["status"]
+        warnings.extend(enc_result["issues"])
+
     if incremental:
         preserved = output_path.read_bytes().startswith(input_path.read_bytes())
         validations["signature_preserved"] = "PASS" if preserved else "FAIL"
@@ -281,6 +290,8 @@ def seal_pdf(input_path: Path, config: SealConfig) -> SealResult:
         tdm_result["status"] != "PASS"
         or integrity_result["status"] != "PASS"
         or docinfo_result["status"] != "PASS"
+        or validations.get("encryption_preserved", "PASS") != "PASS"
+        or validations.get("signature_preserved", "PASS") != "PASS"
         or not iscc_ok
     ):
         status = "failed"

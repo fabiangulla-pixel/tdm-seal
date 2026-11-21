@@ -22,5 +22,11 @@ def write_document_xmp_bytes(pdf: pikepdf.Pdf, xmp_bytes: bytes) -> None:
 
 
 def save_pdf(pdf: pikepdf.Pdf, output_path: Path) -> None:
+    """Guarda el PDF. Si estaba cifrado, conserva cifrado, claves y permisos.
+
+    Sin `encryption=True`, pikepdf guarda la copia **descifrada y sin
+    restricciones** (visto el 21-nov-2026: un PDF que prohibía copiar texto
+    salía sellado sin protección).
+    """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    pdf.save(output_path)
+    pdf.save(output_path, encryption=True if pdf.is_encrypted else None)

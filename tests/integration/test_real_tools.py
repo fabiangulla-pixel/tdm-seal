@@ -98,6 +98,34 @@ def test_sealed_real_pdfa_stays_compliant(tmp_path, part):
     assert result.validations["verapdf"] == "PASS"
 
 
+def test_sealed_pdfa3_with_attachment_stays_compliant(tmp_path):
+    """PDF/A-3b con un XML adjunto (caso factura electrónica / datos asociados)."""
+    import pikepdf
+
+    gs = _ghostscript()
+    base = _pdfa_from(gs, tmp_path, 3)
+    path = tmp_path / "pdfa3_adjunto.pdf"
+    with pikepdf.open(base) as pdf:
+        spec = pikepdf.AttachedFileSpec(
+            pdf,
+            b"<?xml version='1.0'?><datos><isbn>9789580000006</isbn></datos>",
+            description="Datos asociados",
+            mime_type="text/xml",
+            relationship=pikepdf.Name.Data,
+            mod_date="D:20261121000000Z",
+        )
+        pdf.attachments["datos.xml"] = spec
+        pdf.Root.AF = pikepdf.Array([spec.obj])
+        pdf.save(path)
+    assert run_verapdf(path)["status"] == "PASS"  # el original es PDF/A-3 conforme
+
+    result = seal_document(path, SealConfig(policy=POLICY, compute_iscc=True))
+
+    assert result.status == "success", result.warnings
+    assert result.validations["verapdf"] == "PASS"
+    assert result.validations["non_metadata_invariants"] == "PASS"
+
+
 UA_XMP = """<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
 <x:xmpmeta xmlns:x="adobe:ns:meta/">
  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">

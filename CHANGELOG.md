@@ -12,6 +12,21 @@
   clásica y con stream `/XRef`, y un PDF/A-2b firmado sigue conforme en
   veraPDF. Por defecto los firmados se siguen omitiendo (`TDM021`), ahora
   con un mensaje que explica esta opción.
+- Pruebas con PDF cifrados (AES-256, AES-128, RC4), con adjuntos (también
+  en árbol de nombres con `/Kids`), con formularios rellenos y con un
+  PDF/A-3b con XML adjunto validado en veraPDF.
+- Invariantes nuevas: el **contenido** de cada adjunto y los **valores de
+  los campos de formulario** deben quedar iguales tras sellar.
+
+### Corregido
+
+- **`--allow-encrypted` entregaba la copia descifrada y sin restricciones**:
+  pikepdf guarda sin cifrado por defecto, así que un PDF que prohibía copiar
+  texto salía abierto. Ahora se conserva el cifrado (método, claves,
+  contraseña de propietario y permisos) y se comprueba
+  (`encryption_preserved`); si se perdiera, el sellado falla.
+- Los adjuntos en un árbol de nombres con `/Kids` no se contaban (la
+  comprobación decía 0 antes y 0 después).
 
 ## [1.2.0] - 2026-11-20
 
