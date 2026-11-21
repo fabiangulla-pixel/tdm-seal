@@ -4,6 +4,16 @@
 
 ### Añadido
 
+- **Reserva TDM en ONIX 3.0** (`tdmseal onix add` / `tdmseal onix build`,
+  `onix.py`): `EpubUsageConstraint` con `EpubUsageType` 11 (minería de textos
+  y datos, incluido el entrenamiento de IA generativa, lista 145) y
+  `EpubUsageStatus` 03 (prohibido) o 01 (permitido). `add` la inserta en el
+  ONIX que la editorial ya tiene (etiquetas de referencia o cortas, misma
+  codificación, en el orden del XSD, sin tocar nada más, idempotente; los
+  impresos se dejan igual salvo `--all-products`). `build` crea un ONIX
+  mínimo desde PDF/EPUB (ISBN, título, ISCC). Validado contra el XSD oficial
+  de EDItEUR (Issue 75), que `instalar_herramientas.ps1 -ConGhostscript`
+  descarga para las pruebas.
 - **Pruebas con libros reales** (`tests/integration/test_libros_reales.py`):
   cada PDF/EPUB de `%LOCALAPPDATA%\TDMSeal\libros_prueba` (fuera del
   repositorio: tienen derechos reservados) se sella en una copia y se

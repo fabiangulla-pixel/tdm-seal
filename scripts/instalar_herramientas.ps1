@@ -5,6 +5,7 @@
 #   - EPUBCheck (ultima version, W3C)           -> valida los EPUB sellados
 #   - veraPDF (instalacion desatendida)         -> valida los PDF/A sellados
 #   - Ghostscript (solo con -ConGhostscript)    -> genera PDF/A para las pruebas de desarrollo
+#     y, con la misma opcion, el XSD oficial de ONIX 3.0 para validar el ONIX en las pruebas
 #
 # TDM Seal las encuentra solo en esa carpeta (ver src\tdmseal\tools.py).
 # Comprobar despues con:  tdmseal tools
@@ -106,6 +107,20 @@ if ($ConGhostscript) {
         Get-File (Get-LatestAsset "ArtifexSoftware/ghostpdl-downloads" 'w64\.exe$') $exe
         Write-Host "  El instalador puede pedir permisos y dejar abierta su ventana final: cierrela."
         Start-Process $exe -ArgumentList "/S", "/D=$gs" -Wait
+    }
+
+    # Esquema oficial de ONIX 3.0 (EDItEUR) para validar el ONIX que genera TDM Seal.
+    $onix = Join-Path $tools "onix"
+    if (Get-ChildItem $onix -Recurse -Filter "ONIX_BookProduct_3.0_reference.xsd" -ErrorAction SilentlyContinue) {
+        Write-Host "[ok] XSD de ONIX 3.0 ya descargado"
+    } else {
+        Write-Host "[extra] XSD de ONIX 3.0 (EDItEUR)"
+        $page = (& curl.exe -sSL "https://www.editeur.org/93/Release-3.0-Downloads/") -join "`n"
+        $m = [regex]::Match($page, 'href="(/files/ONIX[ %20]+3/ONIX_BookProduct_3\.0_XSDs\+codes_Issue_\d+\.zip)"')
+        if (-not $m.Success) { throw "No se encontro el XSD de ONIX 3.0 en editeur.org" }
+        $zip = Join-Path $dl "onix.zip"
+        Get-File ("https://www.editeur.org" + ($m.Groups[1].Value -replace ' ', '%20')) $zip
+        Expand-Archive $zip -DestinationPath $onix -Force
     }
 }
 

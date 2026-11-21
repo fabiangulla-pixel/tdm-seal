@@ -323,6 +323,72 @@ def manifest(
         click.echo(f"Para verificarla: {verify_command(written)}")
 
 
+@main.group()
+def onix() -> None:
+    """Reserva TDM en ONIX 3.0 (EpubUsageType 11), el canal de distribuidores y librerías."""
+
+
+@onix.command("add")
+@click.argument("onix_file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Archivo de salida (por defecto NOMBRE_TDM.xml; el original no se toca).",
+)
+@click.option("--reservation", type=click.IntRange(0, 1), default=None)
+@click.option(
+    "--all-products", is_flag=True, help="Añadirla también a productos no digitales (impresos)."
+)
+def onix_add(
+    onix_file: Path, out_path: Path | None, reservation: int | None, all_products: bool
+) -> None:
+    """Añade la reserva TDM a cada producto digital de un ONIX 3.0 existente."""
+    from tdmseal.onix import add_tdm_to_onix
+
+    reservation = reservation if reservation is not None else load_defaults().reservation
+    try:
+        data, change = add_tdm_to_onix(
+            onix_file.read_bytes(), reservation, all_products=all_products
+        )
+    except ValueError as exc:
+        click.echo(f"Error: {exc}")
+        sys.exit(1)
+    out_path = out_path or onix_file.with_name(f"{onix_file.stem}_TDM{onix_file.suffix}")
+    if out_path.resolve() == onix_file.resolve():
+        click.echo("Error: --out no puede ser el mismo archivo de entrada.")
+        sys.exit(2)
+    out_path.write_bytes(data)
+    click.echo(f"[OK] {change.summary()} -> {out_path}")
+    if change.skipped_print and not all_products:
+        click.echo(
+            "     Los impresos no admiten EpubUsageConstraint; use el aviso en la página "
+            "de derechos (o --all-products)."
+        )
+
+
+@onix.command("build")
+@click.argument("target", type=click.Path(exists=True, path_type=Path))
+@click.option("--out", "out_path", type=click.Path(path_type=Path), required=True)
+@click.option("--recursive", is_flag=True)
+@click.option("--reservation", type=click.IntRange(0, 1), default=None)
+def onix_build(target: Path, out_path: Path, recursive: bool, reservation: int | None) -> None:
+    """Crea un ONIX 3.0 mínimo (ISBN, título, ISCC, reserva TDM) para PDF/EPUB."""
+    from tdmseal.onix import build_onix
+
+    defaults = load_defaults()
+    docs = iter_documents(target, recursive)
+    if not docs:
+        click.echo("No se encontraron PDF ni EPUB para procesar.")
+        return
+    rows = build_manifest(docs, base_dir=target if target.is_dir() else target.parent).rows
+    reservation = reservation if reservation is not None else defaults.reservation
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_bytes(build_onix(rows, reservation, defaults.publisher.name))
+    click.echo(f"[OK] {len(rows)} obra(s) -> {out_path}")
+
+
 @main.command("selftest")
 @click.option("--dir", "workdir", type=click.Path(path_type=Path), default=None)
 def selftest_command(workdir: Path | None) -> None:
